@@ -788,8 +788,10 @@ public class MainFrame extends JFrame {
 
         panel.add(huntingButton);
         panel.add(Box.createVerticalStrut(20));
-        panel.add(new JScrollPane(huntingLog));
-
+        JScrollPane scrollPane = new JScrollPane(huntingLog);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder()); // Ini yang bikin garis kaku hilang
+        scrollPane.getViewport().setBackground(new Color(35, 39, 54)); // Samakan dengan warna logArea
+        panel.add(scrollPane);
         return panel;
     }
 
@@ -885,14 +887,12 @@ public class MainFrame extends JFrame {
 
         JButton button = new JButton(text);
 
-        button.setFont(new Font("Arial", Font.BOLD, 15));
+        button.setBackground(new Color(108, 117, 240));
         button.setForeground(Color.WHITE);
-        button.setBackground(ACCENT);
         button.setFocusPainted(false);
-        button.setAlignmentX(Component.LEFT_ALIGNMENT);
-        button.setPreferredSize(new Dimension(200, 45));
-        button.setMaximumSize(new Dimension(220, 45));
-
+        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return button;
     }
 
@@ -900,12 +900,10 @@ public class MainFrame extends JFrame {
 
         JTextArea area = new JTextArea(15, 50);
 
-        area.setEditable(false);
-        area.setLineWrap(true);
-        area.setWrapStyleWord(true);
-        area.setBackground(PANEL);
-        area.setForeground(Color.WHITE);
-        area.setFont(new Font("Arial", Font.PLAIN, 14));
+        area.setBackground(new Color(35, 39, 54));
+        area.setForeground(new Color(220, 220, 220));
+        area.setFont(new Font("Consolas", Font.PLAIN, 14));
+        area.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
         area.setBorder(
                 BorderFactory.createEmptyBorder(15, 15, 15, 15)
