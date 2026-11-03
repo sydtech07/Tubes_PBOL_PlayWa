@@ -387,7 +387,7 @@ public class MainFrame extends JFrame {
             information.add(Box.createVerticalStrut(3));
         }
 
-        JButton useButton = createActionButton("GUNAKAN");
+        JButton useButton = createActionButton("Gunakan");
 
         useButton.addActionListener(e ->
                 useInventoryItem(item)
