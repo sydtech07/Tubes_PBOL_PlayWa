@@ -1,1063 +1,190 @@
 package com.playwa.ui;
 
+import com.playwa.activity.Activity;
 import com.playwa.activity.ActivityResult;
-import com.playwa.activity.Adventure;
-import com.playwa.activity.Hunting;
-import com.playwa.model.Player;
-import com.playwa.model.Item;
 import com.playwa.model.InventorySlot;
-import com.playwa.repository.PlayerRepository;
-import com.playwa.service.GameService;
-import com.playwa.service.Inventory;
-import com.playwa.service.Shop;
-
+import com.playwa.model.Item;
+import com.playwa.model.Player;
+import com.playwa.model.Usable;
+import com.playwa.service.Crafting;
+import com.playwa.ui.ItemBrowser.Entry;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.*;
 import java.util.List;
 
+/** Jendela utama: top bar, sidebar, dan halaman-halaman game. */
 public class MainFrame extends JFrame {
-
+    private final Services s;
     private Player player;
+    private final CardLayout cards = new CardLayout();
+    private final JPanel pages = new JPanel(cards);
+    private final Map<String, Page> map = new LinkedHashMap<>();
+    private final Map<String, Theme.Btn> nav = new LinkedHashMap<>();
+    private final Theme.Bar hp = new Theme.Bar(Theme.HP), sta = new Theme.Bar(Theme.STA);
+    private final JLabel hpText = Theme.label("", Theme.SMALL, Theme.TEXT), staText = Theme.label("", Theme.SMALL, Theme.TEXT),
+        goldText = Theme.label("", Theme.BOLD, Theme.GOLD), who = Theme.label("", Theme.BOLD, Theme.TEXT),
+        lvl = Theme.label("", Theme.SMALL, Theme.MUTED), welcome = Theme.label("", Theme.TITLE, Theme.TEXT),
+        toast = Theme.label(" ", Theme.BODY, Theme.GOLD);
+    private final javax.swing.Timer toastTimer = new javax.swing.Timer(4500, e -> toast.setText(" "));
 
-    private final GameService gameService;
-    private final PlayerRepository playerRepository;
-    private final Inventory inventoryService;
-    private final Shop shopService;
+    public MainFrame(Services s, Player player) {
+        this.s = s; this.player = player; toastTimer.setRepeats(false);
+        setTitle("Play W.A"); setSize(1200, 760); setMinimumSize(new Dimension(1050, 660));
+        setDefaultCloseOperation(EXIT_ON_CLOSE); setLocationRelativeTo(null);
+        JPanel root = new JPanel(new BorderLayout()); root.setBackground(Theme.BG); setContentPane(root);
 
-    private JPanel contentPanel;
-    private CardLayout cardLayout;
+        pages.setOpaque(false);
+        JPanel center = new JPanel(new BorderLayout(0, 8)); center.setBackground(Theme.BG);
+        center.setBorder(new EmptyBorder(16, 20, 10, 20));
+        center.add(pages, BorderLayout.CENTER); center.add(toast, BorderLayout.SOUTH);
+        root.add(topBar(), BorderLayout.NORTH); root.add(sidebar(), BorderLayout.WEST); root.add(center, BorderLayout.CENTER);
 
-    private JPanel dashboardPanel;
-    private JPanel characterPanel;
-    private JPanel inventoryPanel;
-    private JPanel shopPanel;
-
-    private JTextArea exploreLog;
-    private JTextArea huntingLog;
-
-    private final Color DARK = new Color(18, 21, 31);
-    private final Color SIDEBAR = new Color(24, 27, 38);
-    private final Color PANEL = new Color(35, 40, 55);
-    private final Color ACCENT = new Color(92, 103, 242);
-
-    public MainFrame(
-            Player player,
-            GameService gameService,
-            PlayerRepository playerRepository,
-            Inventory inventoryService,
-            Shop shopService
-    ) {
-
-        this.player = player;
-        this.gameService = gameService;
-        this.playerRepository = playerRepository;
-        this.inventoryService = inventoryService;
-        this.shopService = shopService;
-
-        setTitle("Play W.A");
-        setSize(1100, 700);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        setMinimumSize(new Dimension(900, 600));
-
-        setLayout(new BorderLayout());
-
-        add(createSidebar(), BorderLayout.WEST);
-        add(createContent(), BorderLayout.CENTER);
+        Theme.Log homeLog = new Theme.Log("Catatan Petualangan"), dungeonLog = new Theme.Log("Laporan Dungeon");
+        addPage("Home", welcome, new HomePage(this, homeLog));
+        addPage("Dungeon", Theme.label("Dungeon", Theme.TITLE, Theme.TEXT), new DungeonPage(this, dungeonLog));
+        addPage("Inventory", Theme.label("Inventory", Theme.TITLE, Theme.TEXT), new ItemBrowser(this::inventoryEntries));
+        addPage("Shop", Theme.label("Shop", Theme.TITLE, Theme.TEXT), shopPage());
+        addPage("Crafting", Theme.label("Crafting", Theme.TITLE, Theme.TEXT), new ItemBrowser(this::craftEntries));
+        reload(); show("Home");
     }
 
-    private JPanel createSidebar() {
+    public Player player() { return player; }
+    public Services services() { return s; }
 
-        JPanel sidebar = new JPanel();
+    private <T extends JComponent & Page> void addPage(String key, JLabel title, T page) {
+        JPanel wrap = new JPanel(new BorderLayout(0, 14)); wrap.setOpaque(false);
+        wrap.add(title, BorderLayout.NORTH); wrap.add(page, BorderLayout.CENTER);
+        pages.add(wrap, key); map.put(key, page);
+        Theme.Btn b = new Theme.Btn(key, Theme.SIDE); b.setHorizontalAlignment(SwingConstants.LEFT);
+        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42)); b.setAlignmentX(Component.LEFT_ALIGNMENT);
+        b.addActionListener(e -> show(key)); nav.put(key, b); navBox.add(b); navBox.add(Box.createVerticalStrut(4));
+    }
 
-        sidebar.setPreferredSize(new Dimension(220, 700));
-        sidebar.setBackground(SIDEBAR);
-        sidebar.setLayout(
-                new BoxLayout(sidebar, BoxLayout.Y_AXIS)
-        );
+    private final JPanel navBox = new JPanel();
 
-        JLabel logo = new JLabel("PLAY W.A");
+    private JPanel topBar() {
+        JPanel bar = new JPanel(new BorderLayout()); bar.setBackground(new Color(0x0C0D11));
+        bar.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE), new EmptyBorder(10, 22, 10, 22)));
+        bar.add(Theme.label("PLAY W.A", new Font("Georgia", Font.BOLD, 22), Theme.TEXT), BorderLayout.WEST);
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 4)); right.setOpaque(false);
+        right.add(Theme.label("HP", Theme.SMALL, Theme.MUTED)); right.add(hp); right.add(hpText);
+        right.add(Theme.label("Stamina", Theme.SMALL, Theme.MUTED)); right.add(sta); right.add(staText); right.add(goldText);
+        bar.add(right, BorderLayout.EAST);
+        return bar;
+    }
 
-        logo.setFont(new Font("Arial", Font.BOLD, 25));
-        logo.setForeground(Color.WHITE);
-        logo.setBorder(
-                BorderFactory.createEmptyBorder(25, 20, 30, 10)
-        );
+    private JPanel sidebar() {
+        JPanel side = new JPanel(new BorderLayout()); side.setBackground(Theme.SIDE);
+        side.setPreferredSize(new Dimension(210, 0));
+        side.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Theme.LINE), new EmptyBorder(18, 14, 16, 14)));
+        JPanel head = new JPanel(); head.setOpaque(false); head.setLayout(new BoxLayout(head, BoxLayout.Y_AXIS));
+        head.setBorder(new EmptyBorder(0, 6, 16, 0)); head.add(who); head.add(lvl);
+        navBox.setOpaque(false); navBox.setLayout(new BoxLayout(navBox, BoxLayout.Y_AXIS));
+        Theme.Btn out = new Theme.Btn("Logout", new Color(0x2B3142));
+        out.addActionListener(e -> { new AuthFrame(s).setVisible(true); dispose(); });
+        side.add(head, BorderLayout.NORTH); side.add(navBox, BorderLayout.CENTER); side.add(out, BorderLayout.SOUTH);
+        return side;
+    }
 
-        sidebar.add(logo);
+    private ShopPage shopPage() {
+        ItemBrowser buy = new ItemBrowser(this::buyEntries), sell = new ItemBrowser(this::sellEntries);
+        CardLayout cl = new CardLayout(); JPanel body = new JPanel(cl); body.setOpaque(false);
+        body.add(buy, "buy"); body.add(sell, "sell");
+        Theme.Btn b1 = new Theme.Btn("Beli", new Color(0x3A4160)), b2 = new Theme.Btn("Jual", Theme.PANEL2);
+        b1.addActionListener(e -> { cl.show(body, "buy"); b1.setBase(new Color(0x3A4160)); b2.setBase(Theme.PANEL2); });
+        b2.addActionListener(e -> { cl.show(body, "sell"); b2.setBase(new Color(0x3A4160)); b1.setBase(Theme.PANEL2); });
+        JPanel tg = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)); tg.setOpaque(false); tg.add(b1); tg.add(b2);
+        return new ShopPage(tg, body, buy, sell);
+    }
 
-        String[] menus = {
-                "Dashboard",
-                "Explore",
-                "Hunting",
-                "Battle",
-                "Dungeon",
-                "Inventory",
-                "Shop",
-                "Crafting",
-                "Character"
-        };
-
-        for (String menu : menus) {
-
-            JButton button = new JButton(menu);
-
-            button.setMaximumSize(new Dimension(220, 45));
-            button.setAlignmentX(Component.CENTER_ALIGNMENT);
-            button.setForeground(Color.WHITE);
-            button.setBackground(new Color(35, 40, 55));
-            button.setFocusPainted(false);
-            button.setBorderPainted(false);
-
-            button.addActionListener(e -> showPage(menu));
-
-            sidebar.add(button);
+    private static class ShopPage extends JPanel implements Page {
+        private final ItemBrowser buy, sell;
+        ShopPage(JPanel toggles, JPanel body, ItemBrowser buy, ItemBrowser sell) {
+            super(new BorderLayout(0, 12)); this.buy = buy; this.sell = sell; setOpaque(false);
+            add(toggles, BorderLayout.NORTH); add(body, BorderLayout.CENTER);
         }
-
-        return sidebar;
+        @Override public void refresh() { buy.refresh(); sell.refresh(); }
     }
 
-    private JPanel createContent() {
+    // ---- data untuk ItemBrowser ----
+    private String info(Item it) { return it.getRarity().getLabel() + " - " + it.getDescription(); }
 
-        cardLayout = new CardLayout();
-        contentPanel = new JPanel(cardLayout);
-
-        dashboardPanel = createDashboard();
-        characterPanel = createCharacterPage();
-        inventoryPanel = createInventoryPage();
-        shopPanel = createShopPage();
-
-        contentPanel.add(dashboardPanel, "Dashboard");
-        contentPanel.add(createExplorePage(), "Explore");
-        contentPanel.add(createHuntingPage(), "Hunting");
-
-        contentPanel.add(
-                createSimplePage(
-                        "BATTLE",
-                        "Hadapi monster dalam pertarungan."
-                ),
-                "Battle"
-        );
-
-        contentPanel.add(
-                createSimplePage(
-                        "DUNGEON",
-                        "Jelajahi dungeon dan hadapi tantangan."
-                ),
-                "Dungeon"
-        );
-
-        contentPanel.add(inventoryPanel, "Inventory");
-        contentPanel.add(shopPanel, "Shop");
-
-        contentPanel.add(
-                createSimplePage(
-                        "CRAFTING",
-                        "Buat item menggunakan material."
-                ),
-                "Crafting"
-        );
-
-        contentPanel.add(characterPanel, "Character");
-
-        return contentPanel;
+    private List<Entry> inventoryEntries() {
+        List<Entry> out = new ArrayList<>();
+        for (InventorySlot sl : s.inventory().list(player)) {
+            Item it = sl.getItem();
+            out.add(new Entry(it.getName(), it.getCategory(), info(it), Theme.rarity(it.getRarity()),
+                player.isEquipped(it.getName()) ? "Terpasang" : "", "x" + sl.getQuantity(), it instanceof Usable ? "Pakai" : "", true,
+                () -> { toast(s.inventory().useItem(player, it)); reload(); }));
+        }
+        return out;
     }
 
-    private JPanel createDashboard() {
-
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(DARK);
-
-        JPanel infoPanel = new JPanel();
-
-        infoPanel.setBackground(PANEL);
-        infoPanel.setLayout(
-                new BoxLayout(infoPanel, BoxLayout.Y_AXIS)
-        );
-
-        infoPanel.setBorder(
-                BorderFactory.createEmptyBorder(25, 35, 25, 35)
-        );
-
-        JLabel welcome = new JLabel(
-                "Welcome, " + player.getName() + "!"
-        );
-
-        welcome.setFont(new Font("Arial", Font.BOLD, 28));
-        welcome.setForeground(Color.WHITE);
-
-        infoPanel.add(welcome);
-        infoPanel.add(Box.createVerticalStrut(25));
-
-        addStat(infoPanel, "Level", player.getLevel());
-        addStat(infoPanel, "EXP", player.getExp());
-        addStat(infoPanel, "Gold", player.getGold());
-
-        addTextStat(
-                infoPanel,
-                "HP",
-                player.getHp() + " / " + player.getMaxHp()
-        );
-
-        addTextStat(
-                infoPanel,
-                "Stamina",
-                player.getStamina() + " / " + player.getMaxStamina()
-        );
-
-        addStat(infoPanel, "Attack", player.getTotalAttack());
-        addStat(infoPanel, "Defense", player.getTotalDefense());
-
-        panel.add(infoPanel);
-
-        return panel;
+    private List<Entry> buyEntries() {
+        List<Entry> out = new ArrayList<>();
+        for (Item it : s.shop().catalog())
+            out.add(new Entry(it.getName(), it.getCategory(), info(it), Theme.rarity(it.getRarity()), "", it.getPrice() + " gold", "Beli",
+                player.getGold() >= it.getPrice(), () -> { toast(s.shop().buyItem(player, it.getName(), 1)); reload(); }));
+        return out;
     }
 
-    private JPanel createCharacterPage() {
-
-        JPanel panel = createActivityPanel(
-                "CHARACTER",
-                "Informasi dan status karakter milikmu."
-        );
-
-        JPanel infoPanel = new JPanel();
-
-        infoPanel.setBackground(PANEL);
-        infoPanel.setLayout(
-                new BoxLayout(infoPanel, BoxLayout.Y_AXIS)
-        );
-
-        infoPanel.setBorder(
-                BorderFactory.createEmptyBorder(20, 25, 20, 25)
-        );
-
-        JLabel name = new JLabel(
-                "Nama Karakter: " + player.getName()
-        );
-
-        name.setForeground(Color.WHITE);
-        name.setFont(new Font("Arial", Font.BOLD, 20));
-
-        infoPanel.add(name);
-        infoPanel.add(Box.createVerticalStrut(20));
-
-        addStat(infoPanel, "Level", player.getLevel());
-        addStat(infoPanel, "EXP", player.getExp());
-        addStat(infoPanel, "Gold", player.getGold());
-
-        addTextStat(
-                infoPanel,
-                "HP",
-                player.getHp() + " / " + player.getMaxHp()
-        );
-
-        addTextStat(
-                infoPanel,
-                "Stamina",
-                player.getStamina() + " / " + player.getMaxStamina()
-        );
-
-        addStat(infoPanel, "Attack", player.getTotalAttack());
-        addStat(infoPanel, "Defense", player.getTotalDefense());
-
-        panel.add(infoPanel);
-
-        return panel;
+    private List<Entry> sellEntries() {
+        List<Entry> out = new ArrayList<>();
+        for (InventorySlot sl : s.inventory().list(player)) {
+            Item it = sl.getItem();
+            out.add(new Entry(it.getName(), it.getCategory(), "Dimiliki x" + sl.getQuantity(), Theme.rarity(it.getRarity()),
+                player.isEquipped(it.getName()) ? "Terpasang" : "", s.shop().sellPrice(it) + " gold", "Jual", true,
+                () -> { toast(s.shop().sellItem(player, it.getName(), 1)); reload(); }));
+        }
+        return out;
     }
 
-    private JPanel createInventoryPage() {
-
-        JPanel panel = createActivityPanel(
-                "INVENTORY",
-                "Lihat dan gunakan item milik karaktermu."
-        );
-
-        JPanel itemList = new JPanel();
-
-        itemList.setBackground(DARK);
-        itemList.setLayout(
-                new BoxLayout(itemList, BoxLayout.Y_AXIS)
-        );
-
-        List<InventorySlot> slots =
-                inventoryService.list(player);
-
-        if (slots.isEmpty()) {
-
-            JLabel emptyLabel = new JLabel(
-                    "Inventory masih kosong."
-            );
-
-            emptyLabel.setForeground(Color.LIGHT_GRAY);
-            emptyLabel.setFont(
-                    new Font("Arial", Font.PLAIN, 16)
-            );
-
-            itemList.add(emptyLabel);
-
-        } else {
-
-            for (InventorySlot slot : slots) {
-
-                itemList.add(createInventoryItem(slot));
-                itemList.add(Box.createVerticalStrut(15));
+    private List<Entry> craftEntries() {
+        Map<String, Integer> owned = new HashMap<>();
+        s.inventory().list(player).forEach(sl -> owned.put(sl.getItem().getName(), sl.getQuantity()));
+        List<Entry> out = new ArrayList<>();
+        for (Crafting.Recipe r : s.crafting().recipes()) {
+            Item it = s.items().findByName(r.result()).orElse(null);
+            if (it == null) continue;
+            boolean can = true; StringBuilder mats = new StringBuilder();
+            for (Map.Entry<String, Integer> e : r.ingredients().entrySet()) {
+                int have = owned.getOrDefault(e.getKey(), 0);
+                if (have < e.getValue()) can = false;
+                mats.append(mats.length() == 0 ? "" : ", ").append(e.getKey()).append(' ').append(have).append('/').append(e.getValue());
             }
+            out.add(new Entry(it.getName(), it.getCategory(), it.getDescription() + "<br>Bahan: " + mats, Theme.rarity(it.getRarity()),
+                "", "", "Craft", can, () -> { toast(s.crafting().craftItem(player, r.result())); reload(); }));
         }
-
-        JScrollPane scrollPane = new JScrollPane(itemList);
-
-        scrollPane.setBorder(null);
-        scrollPane.getViewport().setBackground(DARK);
-        scrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
-        scrollPane.setPreferredSize(
-                new Dimension(750, 420)
-        );
-
-        panel.add(scrollPane);
-
-        return panel;
+        return out;
     }
 
-    private JPanel createInventoryItem(InventorySlot slot) {
-
-        JPanel card = new JPanel(
-                new BorderLayout(15, 5)
-        );
-
-        card.setBackground(PANEL);
-
-        card.setBorder(
-                BorderFactory.createEmptyBorder(15, 20, 15, 20)
-        );
-
-        card.setMaximumSize(new Dimension(800, 150));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel information = new JPanel();
-
-        information.setBackground(PANEL);
-        information.setLayout(
-                new BoxLayout(information, BoxLayout.Y_AXIS)
-        );
-
-        Item item = slot.getItem();
-
-        JLabel name = new JLabel(item.getName());
-
-        name.setForeground(Color.WHITE);
-        name.setFont(new Font("Arial", Font.BOLD, 17));
-
-        JLabel category = new JLabel(
-                "Kategori: " + item.getCategory()
-        );
-
-        JLabel rarity = new JLabel(
-                "Rarity: " + item.getRarity().name()
-        );
-
-        JLabel quantity = new JLabel(
-                "Jumlah: " + slot.getQuantity()
-        );
-
-        JLabel description = new JLabel(
-                "Deskripsi: " + item.getDescription()
-        );
-
-        JLabel[] labels = {
-                category,
-                rarity,
-                quantity,
-                description
-        };
-
-        for (JLabel label : labels) {
-
-            label.setForeground(Color.LIGHT_GRAY);
-            label.setFont(
-                    new Font("Arial", Font.PLAIN, 13)
-            );
-        }
-
-        information.add(name);
-        information.add(Box.createVerticalStrut(7));
-
-        for (JLabel label : labels) {
-
-            information.add(label);
-            information.add(Box.createVerticalStrut(3));
-        }
-
-        JButton useButton = createActionButton("GUNAKAN");
-
-        useButton.addActionListener(e ->
-                useInventoryItem(item)
-        );
-
-        card.add(information, BorderLayout.CENTER);
-        card.add(useButton, BorderLayout.EAST);
-
-        return card;
+    // ---- aksi dan penyegaran ----
+    public void run(Activity a, Theme.Log log) {
+        try { ActivityResult r = s.game().perform(player, a); log.add(a.getName(), r.getLogs()); reload(); }
+        catch (Exception ex) { error(ex); }
     }
 
-    private void useInventoryItem(Item item) {
-
-        try {
-
-            String message = inventoryService.useItem(
-                    player,
-                    item
-            );
-
-            updatePlayer();
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    message,
-                    "Inventory",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-            cardLayout.show(contentPanel, "Inventory");
-
-        } catch (Exception ex) {
-
-            showError(ex);
-        }
+    public void rest(Theme.Log log) {
+        try { log.add("Istirahat", List.of(s.game().rest(player))); reload(); } catch (Exception ex) { error(ex); }
     }
 
-    // =========================
-    // SHOP PAGE
-    // =========================
+    public void toast(String msg) { toast.setText(msg); toastTimer.restart(); }
 
-    private JPanel createShopPage() {
+    private void error(Exception ex) { JOptionPane.showMessageDialog(this, String.valueOf(ex.getMessage()), "Terjadi kesalahan", JOptionPane.ERROR_MESSAGE); }
 
-        JPanel panel = createActivityPanel(
-                "SHOP",
-                "Beli item menggunakan Gold atau jual item milikmu."
-        );
-
-        JLabel goldLabel = new JLabel(
-                "Gold milikmu: " + player.getGold()
-        );
-
-        goldLabel.setForeground(Color.YELLOW);
-        goldLabel.setFont(new Font("Arial", Font.BOLD, 17));
-        goldLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(goldLabel);
-        panel.add(Box.createVerticalStrut(20));
-
-        JLabel catalogTitle = new JLabel("KATALOG ITEM");
-
-        catalogTitle.setForeground(Color.WHITE);
-        catalogTitle.setFont(new Font("Arial", Font.BOLD, 20));
-        catalogTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(catalogTitle);
-        panel.add(Box.createVerticalStrut(10));
-
-        JPanel catalogList = new JPanel();
-
-        catalogList.setBackground(DARK);
-        catalogList.setLayout(
-                new BoxLayout(catalogList, BoxLayout.Y_AXIS)
-        );
-
-        List<Item> catalog = shopService.catalog();
-
-        if (catalog.isEmpty()) {
-
-            JLabel emptyLabel = new JLabel(
-                    "Belum ada item yang dijual."
-            );
-
-            emptyLabel.setForeground(Color.LIGHT_GRAY);
-            catalogList.add(emptyLabel);
-
-        } else {
-
-            for (Item item : catalog) {
-
-                catalogList.add(createShopItem(item));
-                catalogList.add(Box.createVerticalStrut(10));
-            }
-        }
-
-        JScrollPane catalogScroll = new JScrollPane(catalogList);
-
-        catalogScroll.setBorder(null);
-        catalogScroll.getViewport().setBackground(DARK);
-        catalogScroll.setPreferredSize(new Dimension(750, 190));
-        catalogScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(catalogScroll);
-        panel.add(Box.createVerticalStrut(25));
-
-        JLabel sellTitle = new JLabel("ITEM MILIKMU");
-
-        sellTitle.setForeground(Color.WHITE);
-        sellTitle.setFont(new Font("Arial", Font.BOLD, 20));
-        sellTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(sellTitle);
-        panel.add(Box.createVerticalStrut(10));
-
-        JPanel ownedList = new JPanel();
-
-        ownedList.setBackground(DARK);
-        ownedList.setLayout(
-                new BoxLayout(ownedList, BoxLayout.Y_AXIS)
-        );
-
-        List<InventorySlot> slots =
-                inventoryService.list(player);
-
-        if (slots.isEmpty()) {
-
-            JLabel emptyLabel = new JLabel(
-                    "Kamu belum memiliki item untuk dijual."
-            );
-
-            emptyLabel.setForeground(Color.LIGHT_GRAY);
-            ownedList.add(emptyLabel);
-
-        } else {
-
-            for (InventorySlot slot : slots) {
-
-                ownedList.add(createSellItem(slot));
-                ownedList.add(Box.createVerticalStrut(10));
-            }
-        }
-
-        JScrollPane ownedScroll = new JScrollPane(ownedList);
-
-        ownedScroll.setBorder(null);
-        ownedScroll.getViewport().setBackground(DARK);
-        ownedScroll.setPreferredSize(new Dimension(750, 190));
-        ownedScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(ownedScroll);
-
-        return panel;
+    public void reload() {
+        player = s.players().findById(player.getId()).orElseThrow();
+        hp.set(player.getHp(), player.getMaxHp()); hpText.setText(player.getHp() + "/" + player.getMaxHp());
+        sta.set(player.getStamina(), player.getMaxStamina()); staText.setText(player.getStamina() + "/" + player.getMaxStamina());
+        goldText.setText(player.getGold() + " gold"); who.setText(player.getName()); lvl.setText("Level " + player.getLevel());
+        welcome.setText("Selamat datang, " + player.getName());
+        map.values().forEach(Page::refresh);
     }
 
-    private JPanel createShopItem(Item item) {
-
-        JPanel card = new JPanel(new BorderLayout(15, 5));
-
-        card.setBackground(PANEL);
-        card.setBorder(
-                BorderFactory.createEmptyBorder(12, 15, 12, 15)
-        );
-
-        card.setMaximumSize(new Dimension(800, 100));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel information = new JPanel();
-
-        information.setBackground(PANEL);
-        information.setLayout(
-                new BoxLayout(information, BoxLayout.Y_AXIS)
-        );
-
-        JLabel name = new JLabel(item.getName());
-
-        name.setForeground(Color.WHITE);
-        name.setFont(new Font("Arial", Font.BOLD, 16));
-
-        JLabel description = new JLabel(
-                item.getDescription()
-        );
-
-        description.setForeground(Color.LIGHT_GRAY);
-
-        JLabel price = new JLabel(
-                "Harga: " + item.getPrice() + " Gold"
-        );
-
-        price.setForeground(Color.YELLOW);
-
-        information.add(name);
-        information.add(Box.createVerticalStrut(5));
-        information.add(description);
-        information.add(price);
-
-        JButton buyButton = createActionButton("BELI");
-
-        buyButton.addActionListener(e ->
-                buyShopItem(item)
-        );
-
-        card.add(information, BorderLayout.CENTER);
-        card.add(buyButton, BorderLayout.EAST);
-
-        return card;
-    }
-
-    private JPanel createSellItem(InventorySlot slot) {
-
-        JPanel card = new JPanel(new BorderLayout(15, 5));
-
-        card.setBackground(PANEL);
-        card.setBorder(
-                BorderFactory.createEmptyBorder(12, 15, 12, 15)
-        );
-
-        card.setMaximumSize(new Dimension(800, 100));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        Item item = slot.getItem();
-
-        JPanel information = new JPanel();
-
-        information.setBackground(PANEL);
-        information.setLayout(
-                new BoxLayout(information, BoxLayout.Y_AXIS)
-        );
-
-        JLabel name = new JLabel(item.getName());
-
-        name.setForeground(Color.WHITE);
-        name.setFont(new Font("Arial", Font.BOLD, 16));
-
-        JLabel quantity = new JLabel(
-                "Jumlah: " + slot.getQuantity()
-        );
-
-        quantity.setForeground(Color.LIGHT_GRAY);
-
-        JLabel price = new JLabel(
-                "Harga jual: " + shopService.sellPrice(item) + " Gold"
-        );
-
-        price.setForeground(Color.YELLOW);
-
-        information.add(name);
-        information.add(quantity);
-        information.add(price);
-
-        JButton sellButton = createActionButton("JUAL");
-
-        sellButton.addActionListener(e ->
-                sellShopItem(item)
-        );
-
-        card.add(information, BorderLayout.CENTER);
-        card.add(sellButton, BorderLayout.EAST);
-
-        return card;
-    }
-
-    private void buyShopItem(Item item) {
-
-        String input = JOptionPane.showInputDialog(
-                this,
-                "Masukkan jumlah " + item.getName() + " yang ingin dibeli:",
-                "Beli Item",
-                JOptionPane.QUESTION_MESSAGE
-        );
-
-        if (input == null) {
-            return;
-        }
-
-        try {
-
-            int quantity = Integer.parseInt(input.trim());
-
-            String message = shopService.buyItem(
-                    player,
-                    item.getName(),
-                    quantity
-            );
-
-            updatePlayer();
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    message,
-                    "Transaksi Shop",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-            cardLayout.show(contentPanel, "Shop");
-
-        } catch (NumberFormatException ex) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Masukkan jumlah dalam bentuk angka.",
-                    "Input Tidak Valid",
-                    JOptionPane.ERROR_MESSAGE
-            );
-
-        } catch (Exception ex) {
-
-            showError(ex);
-        }
-    }
-
-    private void sellShopItem(Item item) {
-
-        String input = JOptionPane.showInputDialog(
-                this,
-                "Masukkan jumlah " + item.getName() + " yang ingin dijual:",
-                "Jual Item",
-                JOptionPane.QUESTION_MESSAGE
-        );
-
-        if (input == null) {
-            return;
-        }
-
-        try {
-
-            int quantity = Integer.parseInt(input.trim());
-
-            String message = shopService.sellItem(
-                    player,
-                    item.getName(),
-                    quantity
-            );
-
-            updatePlayer();
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    message,
-                    "Transaksi Shop",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-            cardLayout.show(contentPanel, "Shop");
-
-        } catch (NumberFormatException ex) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Masukkan jumlah dalam bentuk angka.",
-                    "Input Tidak Valid",
-                    JOptionPane.ERROR_MESSAGE
-            );
-
-        } catch (Exception ex) {
-
-            showError(ex);
-        }
-    }
-
-    // =========================
-    // EXPLORE DAN HUNTING
-    // =========================
-
-    private JPanel createExplorePage() {
-
-        JPanel panel = createActivityPanel(
-                "EXPLORE",
-                "Jelajahi dunia dan temukan berbagai sumber daya."
-        );
-
-        JButton exploreButton =
-                createActionButton("MULAI EXPLORE");
-
-        exploreLog = createLogArea();
-
-        exploreButton.addActionListener(e -> performExplore());
-
-        panel.add(exploreButton);
-        panel.add(Box.createVerticalStrut(20));
-        panel.add(new JScrollPane(exploreLog));
-
-        return panel;
-    }
-
-    private JPanel createHuntingPage() {
-
-        JPanel panel = createActivityPanel(
-                "HUNTING",
-                "Temui monster dan dapatkan EXP serta Gold."
-        );
-
-        JButton huntingButton =
-                createActionButton("MULAI HUNTING");
-
-        huntingLog = createLogArea();
-
-        huntingButton.addActionListener(e -> performHunting());
-
-        panel.add(huntingButton);
-        panel.add(Box.createVerticalStrut(20));
-        JScrollPane scrollPane = new JScrollPane(huntingLog);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder()); // Ini yang bikin garis kaku hilang
-        scrollPane.getViewport().setBackground(new Color(35, 39, 54)); // Samakan dengan warna logArea
-        panel.add(scrollPane);
-        return panel;
-    }
-
-    private JPanel createSimplePage(
-            String title,
-            String description
-    ) {
-
-        JPanel panel = createActivityPanel(title, description);
-
-        JLabel information = new JLabel(
-                "Fitur sedang kita integrasikan."
-        );
-
-        information.setForeground(Color.LIGHT_GRAY);
-        information.setFont(
-                new Font("Arial", Font.PLAIN, 15)
-        );
-
-        information.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(information);
-
-        return panel;
-    }
-
-    // =========================
-    // KOMPONEN TAMPILAN
-    // =========================
-
-    private JPanel createActivityPanel(
-            String title,
-            String description
-    ) {
-
-        JPanel panel = new JPanel();
-
-        panel.setBackground(DARK);
-        panel.setLayout(
-                new BoxLayout(panel, BoxLayout.Y_AXIS)
-        );
-
-        panel.setBorder(
-                BorderFactory.createEmptyBorder(35, 40, 35, 40)
-        );
-
-        JLabel heading = new JLabel(title);
-
-        heading.setFont(new Font("Arial", Font.BOLD, 28));
-        heading.setForeground(Color.WHITE);
-        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel subtitle = new JLabel(description);
-
-        subtitle.setForeground(Color.LIGHT_GRAY);
-        subtitle.setFont(new Font("Arial", Font.PLAIN, 15));
-        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(heading);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(subtitle);
-        panel.add(Box.createVerticalStrut(25));
-
-        return panel;
-    }
-
-    private void addStat(
-            JPanel panel,
-            String name,
-            int value
-    ) {
-
-        addTextStat(panel, name, String.valueOf(value));
-    }
-
-    private void addTextStat(
-            JPanel panel,
-            String name,
-            String value
-    ) {
-
-        JLabel label = new JLabel(name + ": " + value);
-
-        label.setForeground(Color.WHITE);
-        label.setFont(new Font("Arial", Font.PLAIN, 16));
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        panel.add(label);
-        panel.add(Box.createVerticalStrut(12));
-    }
-
-    private JButton createActionButton(String text) {
-
-        JButton button = new JButton(text);
-
-        button.setBackground(new Color(108, 117, 240));
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        return button;
-    }
-
-    private JTextArea createLogArea() {
-
-        JTextArea area = new JTextArea(15, 50);
-
-        area.setBackground(new Color(35, 39, 54));
-        area.setForeground(new Color(220, 220, 220));
-        area.setFont(new Font("Consolas", Font.PLAIN, 14));
-        area.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
-        area.setBorder(
-                BorderFactory.createEmptyBorder(15, 15, 15, 15)
-        );
-
-        return area;
-    }
-
-    // =========================
-    // AKTIVITAS GAME
-    // =========================
-
-    private void performExplore() {
-
-        try {
-
-            ActivityResult result = gameService.perform(
-                    player,
-                    new Adventure()
-            );
-
-            updatePlayer();
-
-            exploreLog.append("=== HASIL EXPLORE ===\n");
-
-            for (String log : result.getLogs()) {
-                exploreLog.append(log + "\n");
-            }
-
-            exploreLog.append(
-                    "EXP diperoleh: " + result.getExp() + "\n"
-            );
-
-            exploreLog.append(
-                    "Gold diperoleh: " + result.getGold() + "\n\n"
-            );
-
-            exploreLog.setCaretPosition(
-                    exploreLog.getDocument().getLength()
-            );
-
-        } catch (Exception ex) {
-
-            showError(ex);
-        }
-    }
-
-    private void performHunting() {
-
-        try {
-
-            ActivityResult result = gameService.perform(
-                    player,
-                    new Hunting()
-            );
-
-            updatePlayer();
-
-            huntingLog.append("=== HASIL HUNTING ===\n");
-
-            for (String log : result.getLogs()) {
-                huntingLog.append(log + "\n");
-            }
-
-            huntingLog.append(
-                    "EXP diperoleh: " + result.getExp() + "\n"
-            );
-
-            huntingLog.append(
-                    "Gold diperoleh: " + result.getGold() + "\n\n"
-            );
-
-            huntingLog.setCaretPosition(
-                    huntingLog.getDocument().getLength()
-            );
-
-        } catch (Exception ex) {
-
-            showError(ex);
-        }
-    }
-
-    // =========================
-    // REFRESH DATA
-    // =========================
-
-    private void updatePlayer() {
-
-        player = playerRepository.findById(player.getId())
-                .orElseThrow();
-
-        contentPanel.remove(dashboardPanel);
-        contentPanel.remove(characterPanel);
-        contentPanel.remove(inventoryPanel);
-        contentPanel.remove(shopPanel);
-
-        dashboardPanel = createDashboard();
-        characterPanel = createCharacterPage();
-        inventoryPanel = createInventoryPage();
-        shopPanel = createShopPage();
-
-        contentPanel.add(dashboardPanel, "Dashboard");
-        contentPanel.add(characterPanel, "Character");
-        contentPanel.add(inventoryPanel, "Inventory");
-        contentPanel.add(shopPanel, "Shop");
-
-        contentPanel.revalidate();
-        contentPanel.repaint();
-    }
-
-    private void updateInventoryPage() {
-
-        contentPanel.remove(inventoryPanel);
-
-        inventoryPanel = createInventoryPage();
-
-        contentPanel.add(inventoryPanel, "Inventory");
-
-        contentPanel.revalidate();
-        contentPanel.repaint();
-    }
-
-    private void updateShopPage() {
-
-        contentPanel.remove(shopPanel);
-
-        shopPanel = createShopPage();
-
-        contentPanel.add(shopPanel, "Shop");
-
-        contentPanel.revalidate();
-        contentPanel.repaint();
-    }
-
-    private void showError(Exception ex) {
-
-        JOptionPane.showMessageDialog(
-                this,
-                "Terjadi kesalahan: " + ex.getMessage(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE
-        );
-    }
-
-    private void showPage(String page) {
-
-        if (page.equals("Inventory")) {
-            updateInventoryPage();
-        }
-
-        if (page.equals("Shop")) {
-            updateShopPage();
-        }
-
-        cardLayout.show(contentPanel, page);
+    private void show(String key) {
+        cards.show(pages, key);
+        nav.forEach((k, b) -> b.setBase(k.equals(key) ? new Color(0x232838) : Theme.SIDE));
     }
 }
