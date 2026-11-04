@@ -1,63 +1,28 @@
 package com.playwa.desktop;
 
 import com.playwa.PlayWaApplication;
+import com.playwa.repository.ItemRepository;
 import com.playwa.repository.PlayerRepository;
-import com.playwa.service.AuthService;
-import com.playwa.service.GameService;
-import com.playwa.service.Inventory;
-import com.playwa.service.Shop;
-import com.playwa.ui.LoginFrame;
-
+import com.playwa.service.*;
+import com.playwa.ui.AuthFrame;
+import com.playwa.ui.Services;
+import com.playwa.ui.Theme;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
-
 import javax.swing.SwingUtilities;
-import java.awt.GraphicsEnvironment;
 
+/** Titik masuk game desktop (Swing). Jalankan class ini. */
 public class DesktopLauncher {
-
     public static void main(String[] args) {
-
         System.setProperty("java.awt.headless", "false");
+        ConfigurableApplicationContext ctx = new SpringApplicationBuilder(PlayWaApplication.class)
+            .web(WebApplicationType.NONE).headless(false).run(args);
 
-        if (GraphicsEnvironment.isHeadless()) {
-            throw new IllegalStateException(
-                    "Java berjalan dalam mode Headless."
-            );
-        }
+        Services services = new Services(ctx.getBean(AuthService.class), ctx.getBean(GameService.class),
+            ctx.getBean(PlayerRepository.class), ctx.getBean(ItemRepository.class), ctx.getBean(Inventory.class),
+            ctx.getBean(Shop.class), ctx.getBean(Crafting.class));
 
-        ConfigurableApplicationContext context =
-                new SpringApplicationBuilder(PlayWaApplication.class)
-                        .web(WebApplicationType.NONE)
-                        .headless(false)
-                        .run(args);
-
-        AuthService authService =
-                context.getBean(AuthService.class);
-
-        GameService gameService =
-                context.getBean(GameService.class);
-
-        PlayerRepository playerRepository =
-                context.getBean(PlayerRepository.class);
-
-        Inventory inventoryService =
-                context.getBean(Inventory.class);
-
-        Shop shopService =
-                context.getBean(Shop.class);
-
-        SwingUtilities.invokeLater(() -> {
-
-            new LoginFrame(
-                    authService,
-                    gameService,
-                    playerRepository,
-                    inventoryService,
-                    shopService
-            ).setVisible(true);
-
-        });
+        SwingUtilities.invokeLater(() -> { Theme.install(); new AuthFrame(services).setVisible(true); });
     }
 }

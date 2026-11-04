@@ -30,7 +30,6 @@ public abstract class Activity {
         execute(player, result);
         player.addGold(result.getGold());
         result.setLeveledUp(player.gainExp(result.getExp()));
-        if (result.isLeveledUp()) result.log("LEVEL UP! Sekarang level " + player.getLevel());
         return result;
     }
 
