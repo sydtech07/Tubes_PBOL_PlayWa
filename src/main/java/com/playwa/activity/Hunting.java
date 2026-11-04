@@ -24,11 +24,9 @@ public class Hunting extends Activity {
         if (Battle.fight(player, monster, result, true)) {
             result.addExp(monster.getExpReward());
             result.addGold(monster.getGoldReward());
-            result.log("Kamu menang! +" + monster.getExpReward() + " EXP, +" + monster.getGoldReward() + " gold");
             if (RNG.nextInt(100) < 50) {
                 Material drop = new Material("Kulit " + monster.getName(), 12);
                 result.addLoot(drop);
-                result.log("Loot: " + drop.getName());
             }
         } else {
             int lost = player.getGold() / 10;

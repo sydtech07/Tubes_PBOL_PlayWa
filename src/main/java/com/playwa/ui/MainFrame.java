@@ -31,6 +31,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame(Services s, Player player) {
         this.s = s; this.player = player; toastTimer.setRepeats(false);
+        restTimer = new javax.swing.Timer(REST_SECONDS_PER_STAMINA * 1000, e -> restTick());
         setTitle("Play W.A"); setSize(1200, 760); setMinimumSize(new Dimension(1050, 660));
         setDefaultCloseOperation(EXIT_ON_CLOSE); setLocationRelativeTo(null);
         JPanel root = new JPanel(new BorderLayout()); root.setBackground(Theme.BG); setContentPane(root);
@@ -42,7 +43,8 @@ public class MainFrame extends JFrame {
         root.add(topBar(), BorderLayout.NORTH); root.add(sidebar(), BorderLayout.WEST); root.add(center, BorderLayout.CENTER);
 
         Theme.Log homeLog = new Theme.Log("Catatan Petualangan"), dungeonLog = new Theme.Log("Laporan Dungeon");
-        addPage("Home", welcome, new HomePage(this, homeLog));
+        home = new HomePage(this, homeLog);
+        addPage("Home", welcome, home);
         addPage("Dungeon", Theme.label("Dungeon", Theme.TITLE, Theme.TEXT), new DungeonPage(this, dungeonLog));
         addPage("Inventory", Theme.label("Inventory", Theme.TITLE, Theme.TEXT), new ItemBrowser(this::inventoryEntries));
         addPage("Shop", Theme.label("Shop", Theme.TITLE, Theme.TEXT), shopPage());
@@ -161,29 +163,87 @@ public class MainFrame extends JFrame {
     }
 
     // ---- aksi dan penyegaran ----
+    /** Berapa detik untuk memulihkan 1 stamina saat Rest. Ubah angka ini untuk mengatur kecepatan. */
+    public static final int REST_SECONDS_PER_STAMINA = 2;
+    private javax.swing.Timer restTimer;
+    private boolean resting;
+    private Theme.Log restLog;
+    private HomePage home;
+    private boolean busy;
+
     public void run(Activity a, Theme.Log log) {
-        try { ActivityResult r = s.game().perform(player, a); log.add(a.getName(), r.getLogs()); reload(); }
-        catch (Exception ex) { error(ex); }
+        if (resting) { toast("Hentikan istirahat dulu (klik Berhenti)."); return; }
+        if (busy) { toast("Tunggu petualangan selesai..."); return; }
+        try {
+            ActivityResult r = s.game().perform(player, a);
+            busy = true;
+            log.play(a.getName(), r.getLogs(), summary(r), () -> { busy = false; reload(); });
+        } catch (Exception ex) { busy = false; error(ex); }
     }
 
-    public void rest(Theme.Log log) {
-        try { log.add("Istirahat", List.of(s.game().rest(player))); reload(); } catch (Exception ex) { error(ex); }
+    /** Hadiah ditampilkan setelah adegan selesai. Kosong kalau tidak ada hadiah (misalnya stamina kurang). */
+    private List<String> summary(ActivityResult r) {
+        List<String> out = new ArrayList<>();
+        if (r.getExp() == 0 && r.getGold() == 0 && r.getLoot().isEmpty()) return out;
+        out.add("+" + r.getExp() + " EXP, +" + r.getGold() + " gold");
+        Map<String, Integer> count = new LinkedHashMap<>();
+        r.getLoot().forEach(i -> count.merge(i.getName(), 1, Integer::sum));
+        out.add(count.isEmpty() ? "Item: tidak ada" : "Item: " + count.entrySet().stream()
+            .map(e -> e.getKey() + " x" + e.getValue()).collect(java.util.stream.Collectors.joining(", ")));
+        if (r.isLeveledUp()) out.add("LEVEL UP! Sekarang level " + player.getLevel());
+        return out;
     }
+
+    /** Rest bertahap: +1 stamina tiap REST_SECONDS_PER_STAMINA detik. Klik lagi untuk berhenti. */
+    public void rest(Theme.Log log) {
+        if (busy) { toast("Tunggu petualangan selesai..."); return; }
+        if (resting) { stopRest("Kamu berhenti beristirahat."); return; }
+        if (player.getStamina() >= player.getMaxStamina() && player.getHp() >= player.getMaxHp()) {
+            toast("Kamu sudah segar, tidak perlu istirahat."); return;
+        }
+        resting = true; restLog = log;
+        log.add("Istirahat", List.of("Kamu duduk bersandar dan memejamkan mata... (+1 stamina tiap "
+            + REST_SECONDS_PER_STAMINA + " detik)"));
+        home.setResting(true, restInfo());
+        restTimer.start();
+    }
+
+    private void restTick() {
+        player.restoreStamina(1);
+        player.heal(Math.max(1, player.getMaxHp() / 50));
+        s.players().save(player);
+        updateBars();
+        boolean full = player.getStamina() >= player.getMaxStamina() && player.getHp() >= player.getMaxHp();
+        if (full) stopRest("Kamu merasa segar kembali!"); else home.setResting(true, restInfo());
+    }
+
+    private void stopRest(String message) {
+        restTimer.stop(); resting = false;
+        restLog.add("Selesai istirahat", List.of(message, restInfo() + "  |  HP " + player.getHp() + "/" + player.getMaxHp()));
+        home.setResting(false, "");
+    }
+
+    private String restInfo() { return "STA " + player.getStamina() + "/" + player.getMaxStamina(); }
 
     public void toast(String msg) { toast.setText(msg); toastTimer.restart(); }
 
     private void error(Exception ex) { JOptionPane.showMessageDialog(this, String.valueOf(ex.getMessage()), "Terjadi kesalahan", JOptionPane.ERROR_MESSAGE); }
 
-    public void reload() {
-        player = s.players().findById(player.getId()).orElseThrow();
+    private void updateBars() {
         hp.set(player.getHp(), player.getMaxHp()); hpText.setText(player.getHp() + "/" + player.getMaxHp());
         sta.set(player.getStamina(), player.getMaxStamina()); staText.setText(player.getStamina() + "/" + player.getMaxStamina());
-        goldText.setText(player.getGold() + " gold"); who.setText(player.getName()); lvl.setText("Level " + player.getLevel());
+        goldText.setText(player.getGold() + " gold");
+    }
+
+    public void reload() {
+        player = s.players().findById(player.getId()).orElseThrow();
+        updateBars(); who.setText(player.getName()); lvl.setText("Level " + player.getLevel());
         welcome.setText("Selamat datang, " + player.getName());
         map.values().forEach(Page::refresh);
     }
 
     private void show(String key) {
+        if (busy) return;
         cards.show(pages, key);
         nav.forEach((k, b) -> b.setBase(k.equals(key) ? new Color(0x232838) : Theme.SIDE));
     }

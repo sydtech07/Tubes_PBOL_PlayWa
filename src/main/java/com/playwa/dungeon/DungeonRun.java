@@ -66,7 +66,6 @@ public class DungeonRun extends Activity {
         result.addGold(gold);
         loot.forEach(result::addLoot);
         result.log(cleared == dungeon.getFloors() ? "Dungeon selesai!" : "Kamu keluar dari dungeon.");
-        result.log("Hasil: +" + exp + " EXP, +" + gold + " gold, " + loot.size() + " item.");
     }
 
     private void roll(List<LootEntry> table, List<Item> into) {

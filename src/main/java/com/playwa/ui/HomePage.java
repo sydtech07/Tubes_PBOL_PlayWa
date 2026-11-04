@@ -15,6 +15,7 @@ class HomePage extends JPanel implements Page {
         defense = Theme.label("", Theme.BIG, Theme.TEXT), gold = Theme.label("", Theme.BIG, Theme.GOLD),
         expText = Theme.label("", Theme.SMALL, Theme.MUTED), name = Theme.label("", Theme.TITLE, Theme.TEXT);
     private final Theme.Bar exp = new Theme.Bar(Theme.EXP);
+    private Theme.Btn restBtn;
     private final JPanel equip = new JPanel(new GridLayout(2, 2, 10, 10));
 
     HomePage(MainFrame m, Theme.Log log) {
@@ -38,7 +39,8 @@ class HomePage extends JPanel implements Page {
         JPanel actions = new JPanel(new GridLayout(1, 3, 10, 0)); actions.setOpaque(false);
         actions.add(action("Explore", "10 stamina", new Color(0x1E5238), e -> m.run(new Adventure(), log)));
         actions.add(action("Hunt", "15 stamina", new Color(0x7A2A30), e -> m.run(new Hunting(), log)));
-        actions.add(action("Rest", "pulihkan diri", new Color(0x2C4678), e -> m.rest(log)));
+        restBtn = action("Rest", "pulihkan diri", new Color(0x2C4678), e -> m.rest(log));
+        actions.add(restBtn);
         JPanel right = new JPanel(new BorderLayout(0, 16)); right.setOpaque(false);
         right.add(actions, BorderLayout.NORTH); right.add(log, BorderLayout.CENTER);
 
@@ -53,9 +55,18 @@ class HomePage extends JPanel implements Page {
         return c;
     }
 
+    private String html(String title, String sub) {
+        return "<html><div style='text-align:center'><span style='font-size:15px'><b>" + title
+            + "</b></span><br><span style='font-size:10px;color:#C9C6BE'>" + sub + "</span></div></html>";
+    }
+
+    /** Dipanggil MainFrame: tombol Rest berubah jadi "Berhenti" selama istirahat berlangsung. */
+    void setResting(boolean on, String info) {
+        restBtn.setText(on ? html("Berhenti", info) : html("Rest", "pulihkan diri"));
+    }
+
     private Theme.Btn action(String title, String sub, Color color, java.awt.event.ActionListener l) {
-        Theme.Btn b = new Theme.Btn("<html><div style='text-align:center'><span style='font-size:15px'><b>" + title
-            + "</b></span><br><span style='font-size:10px;color:#C9C6BE'>" + sub + "</span></div></html>", color);
+        Theme.Btn b = new Theme.Btn(html(title, sub), color);
         b.setBorder(new EmptyBorder(16, 8, 16, 8)); b.addActionListener(l);
         return b;
     }

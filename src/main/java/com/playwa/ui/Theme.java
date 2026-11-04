@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Warna, font, dan komponen kustom bertema dark fantasy. */
@@ -79,9 +80,12 @@ public final class Theme {
     public static class Card extends JPanel {
         private final Color fill; private Color stripe; private boolean dashed;
         public Card(LayoutManager lm, Color fill, int pad) {
-            super(lm); this.fill = fill; setOpaque(false); setBorder(new EmptyBorder(pad, pad + 2, pad, pad));
+            super(lm); this.fill = fill; setOpaque(false); setBorder(new EmptyBorder(pad, pad, pad, pad));
         }
-        public Card stripe(Color c) { stripe = c; return this; }
+        public Card stripe(Color c) {
+            stripe = c; Insets i = getBorder().getBorderInsets(this);
+            setBorder(new EmptyBorder(i.top, i.left + 4, i.bottom, i.right)); return this;
+        }
         public Card dashed() { dashed = true; return this; }
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create(); smooth(g2);
@@ -141,6 +145,25 @@ public final class Theme {
             area.setText("Petualanganmu akan tercatat di sini.");
             add(scroll(area), BorderLayout.CENTER);
         }
+        /** Memutar adegan baris demi baris, lalu hadiah di akhir. */
+        public void play(String header, List<String> story, List<String> summary, Runnable done) {
+            List<String> texts = new ArrayList<>(); List<Integer> delays = new ArrayList<>();
+            texts.add("\n-- " + header.toUpperCase() + " --"); delays.add(0);
+            for (String l : story) { texts.add(l); delays.add(600 + Math.min(900, l.length() * 12)); }
+            if (!summary.isEmpty()) {
+                texts.add("\n-- HASIL --"); delays.add(1100);
+                for (String l : summary) { texts.add(l); delays.add(450); }
+            }
+            int[] i = {0};
+            javax.swing.Timer t = new javax.swing.Timer(0, null);
+            t.addActionListener(e -> {
+                if (i[0] >= texts.size()) { t.stop(); done.run(); return; }
+                area.append("\n" + texts.get(i[0])); area.setCaretPosition(area.getDocument().getLength());
+                i[0]++; t.setDelay(i[0] < texts.size() ? delays.get(i[0]) : 700);
+            });
+            t.start();
+        }
+
         public void add(String header, List<String> lines) {
             area.append("\n\n-- " + header.toUpperCase() + " --");
             lines.forEach(l -> area.append("\n" + l));
