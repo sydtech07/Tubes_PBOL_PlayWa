@@ -24,9 +24,11 @@ public class MainFrame extends JFrame {
     private final Map<String, Theme.Btn> nav = new LinkedHashMap<>();
     private final Theme.Bar hp = new Theme.Bar(Theme.HP), sta = new Theme.Bar(Theme.STA);
     private final JLabel hpText = Theme.label("", Theme.SMALL, Theme.TEXT), staText = Theme.label("", Theme.SMALL, Theme.TEXT),
-        goldText = Theme.label("", Theme.BOLD, Theme.GOLD), who = Theme.label("", Theme.BOLD, Theme.TEXT),
-        lvl = Theme.label("", Theme.SMALL, Theme.MUTED), welcome = Theme.label("", Theme.TITLE, Theme.TEXT),
-        toast = Theme.label(" ", Theme.BODY, Theme.GOLD);
+            goldText = Theme.label("", Theme.BOLD, Theme.GOLD), who = Theme.label("", Theme.BOLD, Theme.TEXT),
+            lvl = Theme.label("", Theme.SMALL, Theme.MUTED), welcome = Theme.label("", Theme.TITLE, Theme.TEXT),
+            toast = Theme.label(" ", Theme.BODY, Theme.GOLD);
+    private final Theme.Bar expBar = new Theme.Bar(Theme.EXP);
+    private final JLabel expText = Theme.label(" ", Theme.SMALL, Theme.MUTED);
     private final javax.swing.Timer toastTimer = new javax.swing.Timer(4500, e -> toast.setText(" "));
 
     public MainFrame(Services s, Player player) {
@@ -69,7 +71,7 @@ public class MainFrame extends JFrame {
     private JPanel topBar() {
         JPanel bar = new JPanel(new BorderLayout()); bar.setBackground(new Color(0x0C0D11));
         bar.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE), new EmptyBorder(10, 22, 10, 22)));
-        bar.add(Theme.label("PLAY W.A", new Font("Georgia", Font.BOLD, 22), Theme.TEXT), BorderLayout.WEST);
+        bar.add(Theme.label("PLAY W.A", Theme.serif(Font.BOLD, 22), Theme.GOLD), BorderLayout.WEST);
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 4)); right.setOpaque(false);
         right.add(Theme.label("HP", Theme.SMALL, Theme.MUTED)); right.add(hp); right.add(hpText);
         right.add(Theme.label("Stamina", Theme.SMALL, Theme.MUTED)); right.add(sta); right.add(staText); right.add(goldText);
@@ -83,6 +85,10 @@ public class MainFrame extends JFrame {
         side.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Theme.LINE), new EmptyBorder(18, 14, 16, 14)));
         JPanel head = new JPanel(); head.setOpaque(false); head.setLayout(new BoxLayout(head, BoxLayout.Y_AXIS));
         head.setBorder(new EmptyBorder(0, 6, 16, 0)); head.add(who); head.add(lvl);
+        expBar.setPreferredSize(new Dimension(150, 8)); expBar.setMaximumSize(new Dimension(150, 8)); expBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+        Theme.Divider line = new Theme.Divider(); line.setAlignmentX(Component.LEFT_ALIGNMENT);
+        head.add(Box.createVerticalStrut(8)); head.add(expBar); head.add(Box.createVerticalStrut(4)); head.add(expText);
+        head.add(Box.createVerticalStrut(14)); head.add(line);
         navBox.setOpaque(false); navBox.setLayout(new BoxLayout(navBox, BoxLayout.Y_AXIS));
         Theme.Btn out = new Theme.Btn("Logout", new Color(0x2B3142));
         out.addActionListener(e -> { new AuthFrame(s).setVisible(true); dispose(); });
@@ -118,8 +124,8 @@ public class MainFrame extends JFrame {
         for (InventorySlot sl : s.inventory().list(player)) {
             Item it = sl.getItem();
             out.add(new Entry(it.getName(), it.getCategory(), info(it), Theme.rarity(it.getRarity()),
-                player.isEquipped(it.getName()) ? "Terpasang" : "", "x" + sl.getQuantity(), it instanceof Usable ? "Pakai" : "", true,
-                () -> { toast(s.inventory().useItem(player, it)); reload(); }));
+                    player.isEquipped(it.getName()) ? "Terpasang" : "", "x" + sl.getQuantity(), it instanceof Usable ? "Pakai" : "", true,
+                    () -> { toast(s.inventory().useItem(player, it)); reload(); }));
         }
         return out;
     }
@@ -128,7 +134,7 @@ public class MainFrame extends JFrame {
         List<Entry> out = new ArrayList<>();
         for (Item it : s.shop().catalog())
             out.add(new Entry(it.getName(), it.getCategory(), info(it), Theme.rarity(it.getRarity()), "", it.getPrice() + " gold", "Beli",
-                player.getGold() >= it.getPrice(), () -> { toast(s.shop().buyItem(player, it.getName(), 1)); reload(); }));
+                    player.getGold() >= it.getPrice(), () -> { toast(s.shop().buyItem(player, it.getName(), 1)); reload(); }));
         return out;
     }
 
@@ -137,8 +143,8 @@ public class MainFrame extends JFrame {
         for (InventorySlot sl : s.inventory().list(player)) {
             Item it = sl.getItem();
             out.add(new Entry(it.getName(), it.getCategory(), "Dimiliki x" + sl.getQuantity(), Theme.rarity(it.getRarity()),
-                player.isEquipped(it.getName()) ? "Terpasang" : "", s.shop().sellPrice(it) + " gold", "Jual", true,
-                () -> { toast(s.shop().sellItem(player, it.getName(), 1)); reload(); }));
+                    player.isEquipped(it.getName()) ? "Terpasang" : "", s.shop().sellPrice(it) + " gold", "Jual", true,
+                    () -> { toast(s.shop().sellItem(player, it.getName(), 1)); reload(); }));
         }
         return out;
     }
@@ -157,7 +163,7 @@ public class MainFrame extends JFrame {
                 mats.append(mats.length() == 0 ? "" : ", ").append(e.getKey()).append(' ').append(have).append('/').append(e.getValue());
             }
             out.add(new Entry(it.getName(), it.getCategory(), it.getDescription() + "<br>Bahan: " + mats, Theme.rarity(it.getRarity()),
-                "", "", "Craft", can, () -> { toast(s.crafting().craftItem(player, r.result())); reload(); }));
+                    "", "", "Craft", can, () -> { toast(s.crafting().craftItem(player, r.result())); reload(); }));
         }
         return out;
     }
@@ -189,7 +195,7 @@ public class MainFrame extends JFrame {
         Map<String, Integer> count = new LinkedHashMap<>();
         r.getLoot().forEach(i -> count.merge(i.getName(), 1, Integer::sum));
         out.add(count.isEmpty() ? "Item: tidak ada" : "Item: " + count.entrySet().stream()
-            .map(e -> e.getKey() + " x" + e.getValue()).collect(java.util.stream.Collectors.joining(", ")));
+                .map(e -> e.getKey() + " x" + e.getValue()).collect(java.util.stream.Collectors.joining(", ")));
         if (r.isLeveledUp()) out.add("LEVEL UP! Sekarang level " + player.getLevel());
         return out;
     }
@@ -203,7 +209,7 @@ public class MainFrame extends JFrame {
         }
         resting = true; restLog = log;
         log.add("Istirahat", List.of("Kamu duduk bersandar dan memejamkan mata... (+1 stamina tiap "
-            + REST_SECONDS_PER_STAMINA + " detik)"));
+                + REST_SECONDS_PER_STAMINA + " detik)"));
         home.setResting(true, restInfo());
         restTimer.start();
     }
@@ -238,6 +244,7 @@ public class MainFrame extends JFrame {
     public void reload() {
         player = s.players().findById(player.getId()).orElseThrow();
         updateBars(); who.setText(player.getName()); lvl.setText("Level " + player.getLevel());
+        expBar.set(player.getExp(), player.expToNextLevel()); expText.setText("EXP " + player.getExp() + " / " + player.expToNextLevel());
         welcome.setText("Selamat datang, " + player.getName());
         map.values().forEach(Page::refresh);
     }
