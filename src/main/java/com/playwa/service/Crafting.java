@@ -6,6 +6,7 @@ import com.playwa.model.Player;
 import com.playwa.repository.ItemRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.playwa.repository.PlayerRepository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,11 +46,14 @@ public class Crafting {
     );
 
     private final ItemRepository items;
+    private final PlayerRepository players;
     private final Inventory inventory;
 
-    public Crafting(ItemRepository items, Inventory inventory) {
+    public Crafting(ItemRepository items, Inventory inventory,
+                    PlayerRepository players) {
         this.items = items;
         this.inventory = inventory;
+        this.players = players;
     }
 
     public List<Recipe> recipes() {
@@ -101,6 +105,7 @@ public class Crafting {
 
         // Memberikan EXP crafting
         boolean levelUp = player.gainExp(CRAFT_EXP);
+        players.save(player);
 
         // Menampilkan hasil crafting
         String pesan = "Berhasil membuat " + resultName
