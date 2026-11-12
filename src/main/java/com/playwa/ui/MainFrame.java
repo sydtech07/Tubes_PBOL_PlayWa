@@ -162,7 +162,7 @@ public class MainFrame extends JFrame {
                 if (have < e.getValue()) can = false;
                 mats.append(mats.length() == 0 ? "" : ", ").append(e.getKey()).append(' ').append(have).append('/').append(e.getValue());
             }
-            out.add(new Entry(it.getName(), it.getCategory(), it.getDescription() + "<br>Bahan: " + mats, Theme.rarity(it.getRarity()),
+            out.add(new Entry(it.getName(), it.getCategory(), it.getDescription() + "\nBahan: " + mats, Theme.rarity(it.getRarity()),
                     "", "", "Craft", can, () -> { toast(s.crafting().craftItem(player, r.result())); reload(); }));
         }
         return out;
