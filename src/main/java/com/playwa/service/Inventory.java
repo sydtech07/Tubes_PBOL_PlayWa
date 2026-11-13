@@ -24,6 +24,7 @@ public class Inventory {
     }
 
     public void add(Player player, Item item, int qty) {
+        if (qty <= 0) throw new IllegalArgumentException("Jumlah item harus lebih dari 0.");
         Optional<InventorySlot> found = slots.findByPlayerAndItem(player, item);
         if (found.isPresent()) {
             found.get().add(qty);
@@ -34,6 +35,7 @@ public class Inventory {
     }
 
     public boolean remove(Player player, Item item, int qty) {
+        if (qty <= 0) return false;   // BARU
         Optional<InventorySlot> found = slots.findByPlayerAndItem(player, item);
         if (found.isEmpty() || !found.get().remove(qty)) return false;
         if (found.get().getQuantity() == 0) slots.delete(found.get());

@@ -13,9 +13,10 @@ class AuthPanel extends JPanel {
     private final Consumer<Player> onSuccess;
     private boolean registerMode;
     private final JTextField user = new JTextField(), hero = new JTextField();
-    private final JPasswordField pass = new JPasswordField();
+    private final JPasswordField pass = new JPasswordField(), confirm = new JPasswordField();
     private final JLabel subtitle = Theme.label("", Theme.BODY, Theme.MUTED), error = Theme.label(" ", Theme.SMALL, Theme.HP),
-        heroLabel = Theme.label("Nama karakter", Theme.SMALL, Theme.MUTED);
+            heroLabel = Theme.label("Nama karakter", Theme.SMALL, Theme.MUTED),
+            confirmLabel = Theme.label("Konfirmasi password", Theme.SMALL, Theme.MUTED);
     private final Theme.Btn submit = new Theme.Btn("", new Color(0x8A6420)), toggle = new Theme.Btn("", Theme.PANEL);
     private final Theme.Card card = new Theme.Card(new GridBagLayout(), Theme.PANEL, 32);
     private int row;
@@ -24,7 +25,7 @@ class AuthPanel extends JPanel {
         super(new GridBagLayout()); this.s = s; this.onSuccess = onSuccess;
         JLabel title = Theme.label("PLAY W.A", Theme.TITLE, Theme.TEXT);
         for (JLabel l : new JLabel[]{title, subtitle, error}) l.setHorizontalAlignment(SwingConstants.CENTER);
-        for (JTextField f : new JTextField[]{user, hero, pass}) { Theme.style(f); f.setPreferredSize(new Dimension(300, 40)); f.addActionListener(e -> submit()); }
+        for (JTextField f : new JTextField[]{user, hero, pass, confirm}) { Theme.style(f); f.setPreferredSize(new Dimension(300, 40)); f.addActionListener(e -> submit()); }
         submit.setPreferredSize(new Dimension(300, 44)); toggle.setForeground(Theme.GOLD); toggle.setFont(Theme.SMALL);
 
         put(new Emblem(), 0, GridBagConstraints.NONE); put(title, 10, GridBagConstraints.HORIZONTAL);
@@ -32,6 +33,7 @@ class AuthPanel extends JPanel {
         put(Theme.label("Username", Theme.SMALL, Theme.MUTED), 22, GridBagConstraints.HORIZONTAL); put(user, 5, GridBagConstraints.HORIZONTAL);
         put(heroLabel, 14, GridBagConstraints.HORIZONTAL); put(hero, 5, GridBagConstraints.HORIZONTAL);
         put(Theme.label("Password", Theme.SMALL, Theme.MUTED), 14, GridBagConstraints.HORIZONTAL); put(pass, 5, GridBagConstraints.HORIZONTAL);
+        put(confirmLabel, 14, GridBagConstraints.HORIZONTAL); put(confirm, 5, GridBagConstraints.HORIZONTAL);
         put(error, 10, GridBagConstraints.HORIZONTAL); put(submit, 6, GridBagConstraints.HORIZONTAL); put(toggle, 10, GridBagConstraints.HORIZONTAL);
         add(card);
 
@@ -50,14 +52,16 @@ class AuthPanel extends JPanel {
         subtitle.setText(registerMode ? "Buat petualang barumu" : "Masuk ke dunia Haven");
         submit.setText(registerMode ? "Buat akun" : "Masuk");
         toggle.setText(registerMode ? "Sudah punya akun? Masuk" : "Belum punya akun? Daftar");
-        heroLabel.setVisible(registerMode); hero.setVisible(registerMode); error.setText(" ");
+        heroLabel.setVisible(registerMode); hero.setVisible(registerMode);
+        confirmLabel.setVisible(registerMode); confirm.setVisible(registerMode); confirm.setText("");
+        error.setText(" ");
         card.revalidate(); revalidate(); repaint();
     }
 
     private void submit() {
         try {
             Player p;
-            if (registerMode) p = s.auth().register(user.getText(), new String(pass.getPassword()), hero.getText());
+            if (registerMode) p = s.auth().register(user.getText(), new String(pass.getPassword()), new String(confirm.getPassword()), hero.getText());
             else {
                 Optional<Player> found = s.auth().login(user.getText(), new String(pass.getPassword()));
                 if (found.isEmpty()) { error.setText("Username atau password salah."); return; }

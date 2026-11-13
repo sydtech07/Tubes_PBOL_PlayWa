@@ -3,6 +3,7 @@ package com.playwa.activity;
 import com.playwa.model.Item;
 import com.playwa.model.Material;
 import com.playwa.model.Player;
+import java.util.List;   // BARU
 import java.util.Random;
 
 /** Explore: event acak (item, gold, kosong, atau jebakan). */
@@ -14,9 +15,9 @@ public class Adventure extends Activity {
     public Adventure() { super("Explore", 10); }
 
     private static final String[] PREAMBLE = {
-        "Kamu menyusuri jalan setapak yang sepi...", "Angin berbisik di antara pepohonan...",
-        "Langkahmu menggema di tanah berbatu...", "Kamu menyibak semak-semak yang lebat...",
-        "Sesuatu berkilau di kejauhan...", "Suara ranting patah terdengar di belakangmu..."};
+            "Kamu menyusuri jalan setapak yang sepi...", "Angin berbisik di antara pepohonan...",
+            "Langkahmu menggema di tanah berbatu...", "Kamu menyibak semak-semak yang lebat...",
+            "Sesuatu berkilau di kejauhan...", "Suara ranting patah terdengar di belakangmu..."};
 
     @Override
     protected void execute(Player player, ActivityResult result) {
@@ -41,6 +42,9 @@ public class Adventure extends Activity {
             result.log("Klik! Kamu menginjak jebakan! \"Akh!\" (HP -" + dmg + ")");
         }
     }
+
+    /** Nama semua material yang bisa didapat dari Adventure (dipakai untuk validasi ke database). */
+    public static List<String> materialNames() { return List.of(MATERIALS); }
 
     private Item randomMaterial() {
         int i = RNG.nextInt(MATERIALS.length);
