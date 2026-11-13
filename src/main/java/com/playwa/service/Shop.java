@@ -33,9 +33,13 @@ public class Shop {
         if (qty <= 0) return "Jumlah tidak valid.";
         Item item = items.findByName(itemName).orElse(null);
         if (item == null || item instanceof Material) return itemName + " tidak dijual di toko.";
-        int total = item.getPrice() * qty;
-        if (!player.spendGold(total))
+        // long supaya harga x jumlah tidak overflow jadi negatif (yang bikin gold malah bertambah)
+        long totalLong = (long) item.getPrice() * qty;
+        if (totalLong > Integer.MAX_VALUE) return "Jumlah pembelian terlalu besar.";
+        int total = (int) totalLong;
+        if (player.getGold() < total)
             return "Gold tidak cukup (butuh " + total + ", punya " + player.getGold() + ").";
+        if (!player.spendGold(total)) return "Pembelian gagal.";
         inventory.add(player, item, qty);
         players.save(player);
         return "Membeli " + qty + "x " + itemName + " seharga " + total + " gold.";
@@ -47,7 +51,7 @@ public class Shop {
         if (item == null) return itemName + " tidak dikenal.";
         if (!inventory.remove(player, item, qty)) return "Kamu tidak punya " + qty + "x " + itemName + ".";
         if (inventory.count(player, item) == 0) player.unequipByName(itemName);
-        int total = sellPrice(item) * qty;
+        int total = (int) Math.min((long) sellPrice(item) * qty, Integer.MAX_VALUE);
         player.addGold(total);
         players.save(player);
         return "Menjual " + qty + "x " + itemName + " dan mendapat " + total + " gold.";

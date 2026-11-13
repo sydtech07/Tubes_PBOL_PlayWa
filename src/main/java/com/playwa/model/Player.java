@@ -51,7 +51,7 @@ public class Player {
     }
     public boolean isEquipped(String itemName) {
         return itemName.equals(weaponName) || itemName.equals(helmetName)
-            || itemName.equals(chestName) || itemName.equals(bootsName);
+                || itemName.equals(chestName) || itemName.equals(bootsName);
     }
     public String getWeaponName() { return weaponName; }
     public String getHelmetName() { return helmetName; }
@@ -76,8 +76,17 @@ public class Player {
     public void heal(int amount) { hp = Math.min(maxHp, hp + amount); }
     public void takeDamage(int dmg) { hp = Math.max(0, hp - dmg); }
     public boolean isAlive() { return hp > 0; }
-    public void addGold(int amount) { gold += amount; }
-    public boolean spendGold(int amount) { if (gold < amount) return false; gold -= amount; return true; }
+    /** Menambah gold. Jumlah non-positif diabaikan; hasil dibatasi agar tidak overflow jadi negatif. */
+    public void addGold(int amount) {
+        if (amount <= 0) return;
+        gold = (int) Math.min((long) gold + amount, Integer.MAX_VALUE);
+    }
+    /** Mengurangi gold. Gagal (false) kalau jumlah tidak positif atau gold kurang. */
+    public boolean spendGold(int amount) {
+        if (amount <= 0 || gold < amount) return false;
+        gold -= amount;
+        return true;
+    }
     public boolean useStamina(int amount) { if (stamina < amount) return false; stamina -= amount; return true; }
     public void rest() { stamina = maxStamina; heal(maxHp / 2); }
 
