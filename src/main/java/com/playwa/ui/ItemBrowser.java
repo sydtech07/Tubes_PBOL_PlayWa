@@ -6,11 +6,12 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
- * Daftar item berbentuk grid kartu, dengan tab kategori dan pencarian.
- * Dipakai Inventory, Shop, dan Crafting.
+ * Daftar item berbentuk kartu.
+ * Digunakan oleh halaman Inventory, Shop, dan Crafting.
  */
 public class ItemBrowser extends JPanel implements Page {
 
@@ -37,81 +38,134 @@ public class ItemBrowser extends JPanel implements Page {
 
     private final Supplier<List<Entry>> source;
 
-    private final JPanel grid =
-            new JPanel(new GridLayout(0, 3, 12, 12));
+    private final JPanel grid = new JPanel(
+            new GridLayout(0, 3, 14, 14)
+    );
 
-    private final JTextField search = new JTextField() {
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-
-            if (getText().isEmpty()) {
-                Theme.smooth(g);
-                g.setColor(Theme.MUTED);
-                g.setFont(Theme.BODY);
-
-                g.drawString(
-                        "Cari item...",
-                        11,
-                        (getHeight()
-                                + g.getFontMetrics().getAscent()
-                                - g.getFontMetrics().getDescent()) / 2
-                );
-            }
-        }
-    };
+    private final JTextField search = new JTextField();
 
     private final List<Theme.Btn> tabs = new ArrayList<>();
+
+    private final JLabel countLabel = Theme.label(
+            "0 ITEM",
+            Theme.SMALL,
+            Theme.MUTED
+    );
 
     private String cat = "Semua";
 
     public ItemBrowser(Supplier<List<Entry>> source) {
-        super(new BorderLayout(0, 12));
+        super(new BorderLayout(0, 16));
 
         this.source = source;
         setOpaque(false);
 
-        JPanel bar = new JPanel(new BorderLayout(12, 0));
-        bar.setOpaque(false);
+        add(createHeader(), BorderLayout.NORTH);
+        add(createContent(), BorderLayout.CENTER);
+
+        refresh();
+    }
+
+    private JPanel createHeader() {
+        JPanel header = new JPanel(
+                new BorderLayout(0, 12)
+        );
+
+        header.setOpaque(false);
+
+        JPanel titleArea = new JPanel(
+                new BorderLayout()
+        );
+
+        titleArea.setOpaque(false);
+
+        JLabel title = Theme.label(
+                "KOLEKSI ITEM",
+                Theme.H2,
+                Theme.TEXT
+        );
+
+        JLabel subtitle = Theme.label(
+                "Kelola dan temukan item petualanganmu.",
+                Theme.SMALL,
+                Theme.MUTED
+        );
+
+        JPanel titleText = new JPanel();
+        titleText.setOpaque(false);
+        titleText.setLayout(
+                new BoxLayout(titleText, BoxLayout.Y_AXIS)
+        );
+
+        titleText.add(title);
+        titleText.add(Box.createVerticalStrut(4));
+        titleText.add(subtitle);
+
+        titleArea.add(titleText, BorderLayout.WEST);
+        titleArea.add(countLabel, BorderLayout.EAST);
+
+        JPanel controls = new JPanel();
+        controls.setOpaque(false);
+        controls.setLayout(
+                new BoxLayout(controls, BoxLayout.Y_AXIS)
+        );
 
         JPanel tabRow = new JPanel(
-                new FlowLayout(FlowLayout.LEFT, 6, 0)
+                new FlowLayout(FlowLayout.LEFT, 7, 0)
         );
+
         tabRow.setOpaque(false);
 
-        for (String c : CATS) {
-            Theme.Btn b = new Theme.Btn(c, Theme.PANEL2);
+        for (String category : CATS) {
+            Theme.Btn button = new Theme.Btn(
+                    category,
+                    Theme.PANEL2
+            );
 
-            b.setFont(Theme.SMALL);
-            b.setBorder(new EmptyBorder(6, 14, 6, 14));
+            button.setFont(Theme.SMALL);
+            button.setBorder(
+                    new EmptyBorder(7, 13, 7, 13)
+            );
 
-            b.addActionListener(e -> {
-                cat = c;
+            button.addActionListener(e -> {
+                cat = category;
                 refresh();
             });
 
-            tabs.add(b);
-            tabRow.add(b);
+            tabs.add(button);
+            tabRow.add(button);
         }
 
         Theme.style(search);
-        search.setPreferredSize(new Dimension(200, 34));
+
+        search.setPreferredSize(
+                new Dimension(280, 38)
+        );
+
+        search.setMaximumSize(
+                new Dimension(280, 38)
+        );
+
+        search.setToolTipText("Cari nama item");
 
         search.getDocument().addDocumentListener(
                 new javax.swing.event.DocumentListener() {
 
+                    @Override
                     public void insertUpdate(
                             javax.swing.event.DocumentEvent e
                     ) {
                         refresh();
                     }
 
+                    @Override
                     public void removeUpdate(
                             javax.swing.event.DocumentEvent e
                     ) {
                         refresh();
                     }
 
+                    @Override
                     public void changedUpdate(
                             javax.swing.event.DocumentEvent e
                     ) {
@@ -120,110 +174,259 @@ public class ItemBrowser extends JPanel implements Page {
                 }
         );
 
-        bar.add(tabRow, BorderLayout.CENTER);
-        bar.add(search, BorderLayout.EAST);
+        JPanel searchRow = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 0, 0)
+        );
 
+        searchRow.setOpaque(false);
+        searchRow.add(search);
+
+        controls.add(tabRow);
+        controls.add(Box.createVerticalStrut(10));
+        controls.add(searchRow);
+
+        header.add(titleArea, BorderLayout.NORTH);
+        header.add(controls, BorderLayout.CENTER);
+
+        return header;
+    }
+
+    private JScrollPane createContent() {
         grid.setOpaque(false);
 
-        JPanel top = new Theme.ScrollBody(new BorderLayout());
-        top.add(grid, BorderLayout.NORTH);
+        JPanel content = new Theme.ScrollBody(
+                new BorderLayout()
+        );
 
-        add(bar, BorderLayout.NORTH);
-        add(Theme.scroll(top), BorderLayout.CENTER);
+        content.setBorder(
+                new EmptyBorder(2, 2, 12, 2)
+        );
 
-        refresh();
+        content.add(grid, BorderLayout.NORTH);
+
+        JScrollPane scroll = Theme.scroll(content);
+
+        scroll.setBorder(null);
+
+        scroll.setHorizontalScrollBarPolicy(
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        );
+
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+
+        return scroll;
     }
 
     @Override
     public void refresh() {
-        for (int i = 0; i < tabs.size(); i++) {
-            tabs.get(i).setBase(
-                    CATS[i].equals(cat)
-                            ? new Color(0x3A4160)
-                            : Theme.PANEL2
-            );
-        }
+        updateTabs();
 
-        String q = search.getText()
+        String keyword = search.getText()
                 .trim()
-                .toLowerCase();
+                .toLowerCase(Locale.ROOT);
 
         grid.removeAll();
 
         int shown = 0;
 
-        for (Entry e : source.get()) {
+        List<Entry> entries = source.get();
 
-            if (!cat.equals("Semua")
-                    && !cat.equals(e.category())) {
-                continue;
+        if (entries != null) {
+            for (Entry entry : entries) {
+                if (entry == null) {
+                    continue;
+                }
+
+                if (!matchesCategory(entry)) {
+                    continue;
+                }
+
+                if (!matchesSearch(entry, keyword)) {
+                    continue;
+                }
+
+                grid.add(createCard(entry));
+                shown++;
             }
-
-            if (!q.isEmpty()
-                    && !e.name().toLowerCase().contains(q)) {
-                continue;
-            }
-
-            grid.add(card(e));
-            shown++;
         }
 
+        countLabel.setText(shown + " ITEM");
+
         if (shown == 0) {
-            grid.add(
-                    Theme.label(
-                            "Tidak ada item.",
-                            Theme.BODY,
-                            Theme.MUTED
-                    )
-            );
+            grid.add(createEmptyState());
         }
 
         grid.revalidate();
         grid.repaint();
     }
 
-    private JPanel card(Entry e) {
+    private void updateTabs() {
+        for (int i = 0; i < tabs.size(); i++) {
+            boolean selected = CATS[i].equals(cat);
 
-        Theme.Card c = new Theme.Card(
-                new BorderLayout(0, 8),
+            tabs.get(i).setBase(
+                    selected
+                            ? Theme.GOLD_DARK
+                            : Theme.PANEL2
+            );
+
+            tabs.get(i).setForeground(
+                    selected
+                            ? Theme.GOLD
+                            : Theme.TEXT
+            );
+        }
+    }
+
+    private boolean matchesCategory(Entry entry) {
+        return cat.equals("Semua")
+                || cat.equals(entry.category());
+    }
+
+    private boolean matchesSearch(
+            Entry entry,
+            String keyword
+    ) {
+        if (keyword.isEmpty()) {
+            return true;
+        }
+
+        String name = safe(entry.name())
+                .toLowerCase(Locale.ROOT);
+
+        String info = safe(entry.info())
+                .toLowerCase(Locale.ROOT);
+
+        return name.contains(keyword)
+                || info.contains(keyword);
+    }
+
+    private JPanel createCard(Entry entry) {
+        Color accent = entry.color() != null
+                ? entry.color()
+                : Theme.GOLD;
+
+        Theme.Card card = new Theme.Card(
+                new BorderLayout(0, 12),
                 Theme.PANEL2,
-                12
-        ).stripe(e.color());
+                15
+        ).stripe(accent);
 
-        // Bagian judul dan badge
-        JPanel header = new JPanel(new BorderLayout(6, 0));
+        card.setPreferredSize(
+                new Dimension(240, 165)
+        );
+
+        JPanel header = new JPanel(
+                new BorderLayout(8, 0)
+        );
+
         header.setOpaque(false);
 
         JLabel name = Theme.label(
-                e.name(),
+                safe(entry.name()),
                 Theme.BOLD,
-                e.color()
+                accent
         );
 
         header.add(name, BorderLayout.CENTER);
 
-        if (!e.badge().isEmpty()) {
-            JLabel badge = Theme.label(
-                    e.badge(),
-                    Theme.SMALL,
-                    new Color(0xE2B44F)
+        if (!safe(entry.badge()).isEmpty()) {
+            Theme.Pill badge = new Theme.Pill(
+                    entry.badge(),
+                    Theme.GOLD
             );
 
             header.add(badge, BorderLayout.EAST);
         }
 
-        // Deskripsi tanpa HTML
-        JTextArea info = new JTextArea(e.info());
+        JTextArea description = new JTextArea(
+                safe(entry.info())
+        );
 
-        info.setEditable(false);
-        info.setFocusable(false);
-        info.setLineWrap(true);
-        info.setWrapStyleWord(true);
-        info.setOpaque(false);
-        info.setBorder(null);
-        info.setFont(Theme.SMALL);
-        info.setForeground(Theme.MUTED);
-        info.setRows(3);
+        description.setEditable(false);
+        description.setFocusable(false);
+        description.setLineWrap(true);
+        description.setWrapStyleWord(true);
+        description.setOpaque(false);
+        description.setBorder(null);
+        description.setFont(Theme.SMALL);
+        description.setForeground(Theme.MUTED);
+        description.setRows(3);
+
+        JPanel details = new JPanel();
+        details.setOpaque(false);
+
+        details.setLayout(
+                new BoxLayout(details, BoxLayout.Y_AXIS)
+        );
+
+        details.add(header);
+        details.add(Box.createVerticalStrut(9));
+        details.add(description);
+
+        JPanel footer = new JPanel(
+                new BorderLayout(8, 0)
+        );
+
+        footer.setOpaque(false);
+
+        JLabel price = Theme.label(
+                safe(entry.price()),
+                Theme.BOLD,
+                Theme.GOLD
+        );
+
+        footer.add(price, BorderLayout.WEST);
+
+        if (!safe(entry.button()).isEmpty()) {
+            Theme.Btn actionButton = new Theme.Btn(
+                    entry.button(),
+                    new Color(0x343B4E)
+            );
+
+            actionButton.setFont(Theme.SMALL);
+            actionButton.setBorder(
+                    new EmptyBorder(6, 13, 6, 13)
+            );
+
+            actionButton.setEnabled(entry.enabled());
+
+            actionButton.addActionListener(e -> {
+                if (entry.action() != null) {
+                    entry.action().run();
+                }
+            });
+
+            footer.add(
+                    actionButton,
+                    BorderLayout.EAST
+            );
+        }
+
+        card.add(details, BorderLayout.CENTER);
+        card.add(footer, BorderLayout.SOUTH);
+
+        return card;
+    }
+
+    private JPanel createEmptyState() {
+        Theme.Card empty = new Theme.Card(
+                new BorderLayout(0, 8),
+                Theme.PANEL,
+                24
+        );
+
+        JLabel title = Theme.label(
+                "ITEM TIDAK DITEMUKAN",
+                Theme.BOLD,
+                Theme.TEXT
+        );
+
+        JLabel subtitle = Theme.label(
+                "Coba gunakan kata kunci atau kategori lain.",
+                Theme.SMALL,
+                Theme.MUTED
+        );
 
         JPanel text = new JPanel();
         text.setOpaque(false);
@@ -231,48 +434,16 @@ public class ItemBrowser extends JPanel implements Page {
                 new BoxLayout(text, BoxLayout.Y_AXIS)
         );
 
-        text.add(header);
+        text.add(title);
         text.add(Box.createVerticalStrut(5));
-        text.add(info);
+        text.add(subtitle);
 
-        // Bagian harga dan tombol
-        JPanel foot = new JPanel(new BorderLayout());
-        foot.setOpaque(false);
+        empty.add(text, BorderLayout.CENTER);
 
-        JLabel price = Theme.label(
-                e.price(),
-                Theme.BOLD,
-                Theme.GOLD
-        );
+        return empty;
+    }
 
-        foot.add(price, BorderLayout.WEST);
-
-        if (!e.button().isEmpty()) {
-
-            Theme.Btn b = new Theme.Btn(
-                    e.button(),
-                    new Color(0x2B3142)
-            );
-
-            b.setFont(Theme.SMALL);
-            b.setBorder(
-                    new EmptyBorder(5, 14, 5, 14)
-            );
-
-            b.setEnabled(e.enabled());
-
-            b.addActionListener(ev -> {
-                if (e.action() != null) {
-                    e.action().run();
-                }
-            });
-
-            foot.add(b, BorderLayout.EAST);
-        }
-
-        c.add(text, BorderLayout.CENTER);
-        c.add(foot, BorderLayout.SOUTH);
-
-        return c;
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 }

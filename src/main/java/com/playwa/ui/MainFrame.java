@@ -34,12 +34,18 @@ public class MainFrame extends JFrame {
     public MainFrame(Services s, Player player) {
         this.s = s; this.player = player; toastTimer.setRepeats(false);
         restTimer = new javax.swing.Timer(REST_SECONDS_PER_STAMINA * 1000, e -> restTick());
-        setTitle("Play W.A"); setSize(1200, 760); setMinimumSize(new Dimension(1050, 660));
-        setDefaultCloseOperation(EXIT_ON_CLOSE); setLocationRelativeTo(null);
-        JPanel root = new JPanel(new BorderLayout()); root.setBackground(Theme.BG); setContentPane(root);
+        setTitle("Play W.A | World Adventure");
+        setSize(1280, 800);
+        setMinimumSize(new Dimension(1100, 700));
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setResizable(true);
+        GameBackground root = new GameBackground(new BorderLayout());
+        setContentPane(root);
 
         pages.setOpaque(false);
-        JPanel center = new JPanel(new BorderLayout(0, 8)); center.setBackground(Theme.BG);
+        JPanel center = new JPanel(new BorderLayout(0, 8));
+        center.setOpaque(false);
         center.setBorder(new EmptyBorder(16, 20, 10, 20));
         center.add(pages, BorderLayout.CENTER); center.add(toast, BorderLayout.SOUTH);
         root.add(topBar(), BorderLayout.NORTH); root.add(sidebar(), BorderLayout.WEST); root.add(center, BorderLayout.CENTER);
@@ -57,44 +63,318 @@ public class MainFrame extends JFrame {
     public Player player() { return player; }
     public Services services() { return s; }
 
-    private <T extends JComponent & Page> void addPage(String key, JLabel title, T page) {
-        JPanel wrap = new JPanel(new BorderLayout(0, 14)); wrap.setOpaque(false);
-        wrap.add(title, BorderLayout.NORTH); wrap.add(page, BorderLayout.CENTER);
-        pages.add(wrap, key); map.put(key, page);
-        Theme.Btn b = new Theme.Btn(key, Theme.SIDE); b.setHorizontalAlignment(SwingConstants.LEFT);
-        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42)); b.setAlignmentX(Component.LEFT_ALIGNMENT);
-        b.addActionListener(e -> show(key)); nav.put(key, b); navBox.add(b); navBox.add(Box.createVerticalStrut(4));
+
+    private <T extends JComponent & Page> void addPage(
+            String key,
+            JLabel title,
+            T page
+    ) {
+        JPanel wrap = new JPanel(new BorderLayout(0, 16));
+        wrap.setOpaque(false);
+        wrap.setBorder(new EmptyBorder(4, 4, 4, 4));
+
+        title.setFont(Theme.serif(Font.BOLD, 27));
+        title.setForeground(Theme.TEXT);
+
+        wrap.add(title, BorderLayout.NORTH);
+        wrap.add(page, BorderLayout.CENTER);
+
+        pages.add(wrap, key);
+        map.put(key, page);
+
+        Theme.Btn button = new Theme.Btn(key, Theme.SIDE);
+
+        button.setHorizontalAlignment(SwingConstants.LEFT);
+        button.setFont(Theme.BOLD);
+        button.setForeground(Theme.TEXT);
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
+        button.setPreferredSize(new Dimension(190, 46));
+        button.setAlignmentX(Component.LEFT_ALIGNMENT);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setToolTipText("Buka halaman " + key);
+
+        button.addActionListener(e -> show(key));
+
+        nav.put(key, button);
+
+        navBox.add(button);
+        navBox.add(Box.createVerticalStrut(7));
     }
 
     private final JPanel navBox = new JPanel();
 
+
+
     private JPanel topBar() {
-        JPanel bar = new JPanel(new BorderLayout()); bar.setBackground(new Color(0x0C0D11));
-        bar.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.LINE), new EmptyBorder(10, 22, 10, 22)));
-        bar.add(Theme.label("PLAY W.A", Theme.serif(Font.BOLD, 22), Theme.GOLD), BorderLayout.WEST);
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 4)); right.setOpaque(false);
-        right.add(Theme.label("HP", Theme.SMALL, Theme.MUTED)); right.add(hp); right.add(hpText);
-        right.add(Theme.label("Stamina", Theme.SMALL, Theme.MUTED)); right.add(sta); right.add(staText); right.add(goldText);
-        bar.add(right, BorderLayout.EAST);
+        JPanel bar = new JPanel(new BorderLayout(25, 0));
+        bar.setBackground(Theme.SIDE);
+
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(
+                        0, 0, 1, 0, Theme.LINE
+                ),
+                new EmptyBorder(15, 24, 15, 24)
+        ));
+
+        // Identitas game
+        JLabel logo = Theme.label(
+                "PLAY W.A",
+                Theme.serif(Font.BOLD, 26),
+                Theme.GOLD
+        );
+
+        JLabel subtitle = Theme.label(
+                "WORLD ADVENTURE",
+                Theme.SMALL,
+                Theme.MUTED
+        );
+
+        JPanel brand = new JPanel();
+        brand.setOpaque(false);
+        brand.setLayout(new BoxLayout(brand, BoxLayout.Y_AXIS));
+
+        brand.add(logo);
+        brand.add(Box.createVerticalStrut(3));
+        brand.add(subtitle);
+
+        // Informasi status pemain
+        JPanel stats = new JPanel(
+                new FlowLayout(FlowLayout.RIGHT, 14, 0)
+        );
+        stats.setOpaque(false);
+
+        stats.add(createTopStat(
+                "HEALTH",
+                hp,
+                hpText,
+                Theme.HP
+        ));
+
+        stats.add(createTopStat(
+                "STAMINA",
+                sta,
+                staText,
+                Theme.STA
+        ));
+
+        // Gold tanpa kotak luar
+        JPanel goldPanel = new JPanel(
+                new FlowLayout(FlowLayout.CENTER, 9, 5)
+        );
+        goldPanel.setOpaque(false);
+
+        Theme.Pill goldPill = new Theme.Pill(
+                "GOLD",
+                Theme.GOLD
+        );
+
+        goldPanel.add(goldPill);
+        goldPanel.add(goldText);
+
+        stats.add(goldPanel);
+
+        bar.add(brand, BorderLayout.WEST);
+        bar.add(stats, BorderLayout.EAST);
+
         return bar;
     }
 
+
+    private JPanel createTopStat(
+            String title,
+            Theme.Bar progress,
+            JLabel value,
+            Color color
+    ) {
+        JPanel panel = new JPanel(
+                new BorderLayout(0, 5)
+        );
+
+        panel.setOpaque(false);
+        panel.setPreferredSize(new Dimension(135, 42));
+
+        JLabel heading = Theme.label(
+                title,
+                Theme.SMALL,
+                color
+        );
+
+        progress.setPreferredSize(
+                new Dimension(75, 7)
+        );
+
+        JPanel valuePanel = new JPanel(
+                new BorderLayout(7, 0)
+        );
+
+        valuePanel.setOpaque(false);
+        valuePanel.add(progress, BorderLayout.CENTER);
+        valuePanel.add(value, BorderLayout.EAST);
+
+        panel.add(heading, BorderLayout.NORTH);
+        panel.add(valuePanel, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+
+    private JPanel statusBlock(
+            String title,
+            Theme.Bar progress,
+            JLabel value,
+            Color accent
+    ) {
+        Theme.Card card = new Theme.Card(
+                new BorderLayout(0, 5),
+                Theme.PANEL,
+                10
+        );
+
+        JLabel heading = Theme.label(
+                title,
+                Theme.SMALL,
+                accent
+        );
+
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
+
+        progress.setPreferredSize(new Dimension(85, 8));
+
+        row.add(progress, BorderLayout.CENTER);
+        row.add(value, BorderLayout.EAST);
+
+        card.add(heading, BorderLayout.NORTH);
+        card.add(row, BorderLayout.CENTER);
+
+        card.setPreferredSize(new Dimension(190, 52));
+
+        return card;
+    }
+
+
+
+
     private JPanel sidebar() {
-        JPanel side = new JPanel(new BorderLayout()); side.setBackground(Theme.SIDE);
-        side.setPreferredSize(new Dimension(210, 0));
-        side.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Theme.LINE), new EmptyBorder(18, 14, 16, 14)));
-        JPanel head = new JPanel(); head.setOpaque(false); head.setLayout(new BoxLayout(head, BoxLayout.Y_AXIS));
-        head.setBorder(new EmptyBorder(0, 6, 16, 0)); head.add(who); head.add(lvl);
-        expBar.setPreferredSize(new Dimension(150, 8)); expBar.setMaximumSize(new Dimension(150, 8)); expBar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        Theme.Divider line = new Theme.Divider(); line.setAlignmentX(Component.LEFT_ALIGNMENT);
-        head.add(Box.createVerticalStrut(8)); head.add(expBar); head.add(Box.createVerticalStrut(4)); head.add(expText);
-        head.add(Box.createVerticalStrut(14)); head.add(line);
-        navBox.setOpaque(false); navBox.setLayout(new BoxLayout(navBox, BoxLayout.Y_AXIS));
-        Theme.Btn out = new Theme.Btn("Logout", new Color(0x2B3142));
-        out.addActionListener(e -> { new AuthFrame(s).setVisible(true); dispose(); });
-        side.add(head, BorderLayout.NORTH); side.add(navBox, BorderLayout.CENTER); side.add(out, BorderLayout.SOUTH);
+        JPanel side = new JPanel(new BorderLayout(0, 20));
+        side.setBackground(Theme.SIDE);
+        side.setPreferredSize(new Dimension(245, 0));
+
+        side.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(
+                        0, 0, 0, 1, Theme.LINE
+                ),
+                new EmptyBorder(20, 15, 16, 15)
+        ));
+
+        // Profil pemain
+        Theme.Card profile = new Theme.Card(
+                new BorderLayout(0, 10),
+                Theme.PANEL,
+                14
+        ).stripe(Theme.GOLD);
+
+        JLabel profileTitle = Theme.label(
+                "PROFIL PETUALANG",
+                Theme.SMALL,
+                Theme.GOLD
+        );
+
+        profileTitle.setFont(Theme.BOLD);
+        profileTitle.setHorizontalAlignment(SwingConstants.LEFT);
+        profileTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        who.setFont(Theme.serif(Font.BOLD, 17));
+        who.setForeground(Theme.TEXT);
+        who.setHorizontalAlignment(SwingConstants.LEFT);
+        who.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        lvl.setFont(Theme.BODY);
+        lvl.setForeground(Theme.MUTED);
+        lvl.setHorizontalAlignment(SwingConstants.LEFT);
+        lvl.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel identity = new JPanel();
+        identity.setOpaque(false);
+        identity.setLayout(new BoxLayout(identity, BoxLayout.Y_AXIS));
+        identity.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        identity.add(who);
+        identity.add(Box.createVerticalStrut(5));
+        identity.add(lvl);
+
+        expBar.setPreferredSize(new Dimension(170, 9));
+        expBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 9));
+
+        JPanel expPanel = new JPanel(new BorderLayout(0, 7));
+        expPanel.setOpaque(false);
+        expPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        expPanel.add(expBar, BorderLayout.NORTH);
+        expPanel.add(expText, BorderLayout.SOUTH);
+
+        JPanel profileContent = new JPanel();
+        profileContent.setOpaque(false);
+        profileContent.setLayout(new BoxLayout(profileContent, BoxLayout.Y_AXIS));
+
+        profileContent.add(profileTitle);
+        profileContent.add(Box.createVerticalStrut(12));
+        profileContent.add(identity);
+        profileContent.add(Box.createVerticalStrut(15));
+        profileContent.add(expPanel);
+
+        profile.add(profileContent, BorderLayout.CENTER);
+
+        // Menu navigasi
+        JLabel menuTitle = Theme.label(
+                "MENU UTAMA",
+                Theme.SMALL,
+                Theme.MUTED
+        );
+
+        navBox.removeAll();
+        navBox.setOpaque(false);
+        navBox.setLayout(new BoxLayout(navBox, BoxLayout.Y_AXIS));
+
+        JPanel menu = new JPanel(new BorderLayout(0, 12));
+        menu.setOpaque(false);
+        menu.add(menuTitle, BorderLayout.NORTH);
+        menu.add(navBox, BorderLayout.CENTER);
+
+        // Tombol logout
+        Theme.Btn out = new Theme.Btn("Logout", Theme.RED);
+
+        out.setHorizontalAlignment(SwingConstants.CENTER);
+        out.setFont(Theme.BOLD);
+        out.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        out.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        out.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Apakah kamu yakin ingin keluar dari permainan?",
+                    "Konfirmasi Logout",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                restTimer.stop();
+                toastTimer.stop();
+
+                new AuthFrame(s).setVisible(true);
+                dispose();
+            }
+        });
+
+        side.add(profile, BorderLayout.NORTH);
+        side.add(menu, BorderLayout.CENTER);
+        side.add(out, BorderLayout.SOUTH);
+
         return side;
     }
+
+
 
     private ShopPage shopPage() {
         ItemBrowser buy = new ItemBrowser(this::buyEntries), sell = new ItemBrowser(this::sellEntries);
@@ -249,9 +529,28 @@ public class MainFrame extends JFrame {
         map.values().forEach(Page::refresh);
     }
 
+
     private void show(String key) {
-        if (busy) return;
+        if (busy) {
+            toast("Tunggu aktivitas selesai terlebih dahulu.");
+            return;
+        }
+
+        if (!map.containsKey(key)) {
+            return;
+        }
+
         cards.show(pages, key);
-        nav.forEach((k, b) -> b.setBase(k.equals(key) ? new Color(0x232838) : Theme.SIDE));
+
+        nav.forEach((name, button) -> {
+            boolean active = name.equals(key);
+
+            button.setSelected(active);
+            button.setBase(active ? Theme.GOLD_DARK : Theme.SIDE);
+            button.setForeground(active ? Theme.GOLD : Theme.TEXT);
+        });
+
+        map.get(key).refresh();
     }
+
 }

@@ -25,10 +25,31 @@ public final class Theme {
     private Theme() {}
 
     // ---- Warna ----
-    public static final Color BG = new Color(0x090A0D), SIDE = new Color(0x0C0D11), PANEL = new Color(0x12141A),
-            PANEL2 = new Color(0x1A1D26), LINE = new Color(0x2A2E3A), TEXT = new Color(0xE9E6DF), MUTED = new Color(0x8B8F9C),
-            HP = new Color(0xE5484D), STA = new Color(0x2BB673), EXP = new Color(0x9B5DE5), GOLD = new Color(0xE2B44F),
-            RED = new Color(0x4A1A1E), GREEN = new Color(0x143324), BLUE = new Color(0x1B2A4A), PURPLE = new Color(0x2C1B48);
+    public static final Color BG = new Color(0x090B10);
+    public static final Color SIDE = new Color(0x0D1017);
+
+    public static final Color PANEL = new Color(0x151923);
+    public static final Color PANEL2 = new Color(0x1D2330);
+    public static final Color SURFACE = new Color(0x10151F);
+
+    public static final Color LINE = new Color(0x303849);
+    public static final Color TEXT = new Color(0xF0EDE5);
+    public static final Color MUTED = new Color(0x969EAE);
+
+    public static final Color GOLD = new Color(0xE5B957);
+    public static final Color GOLD_DARK = new Color(0x332A19);
+
+    public static final Color HP = new Color(0xE45B62);
+    public static final Color STA = new Color(0x55C58A);
+    public static final Color EXP = new Color(0xA78BFA);
+
+    public static final Color RED = new Color(0x45242B);
+    public static final Color GREEN = new Color(0x19392F);
+    public static final Color BLUE = new Color(0x202F4B);
+    public static final Color PURPLE = new Color(0x30264B);
+
+    public static final Color SUCCESS = new Color(0x70C99A);
+    public static final Color WARNING = new Color(0xE8B96A);
 
     // ---- Font: judul pakai serif (kesan fantasi), isi pakai sans-serif yang mudah dibaca ----
     private static final Set<String> INSTALLED = new HashSet<>(Arrays.asList(
@@ -55,7 +76,7 @@ public final class Theme {
         UIManager.put("Button.disabledText", new Color(0x6A6E7A));
         UIManager.put("Button.font", BOLD);
         UIManager.put("OptionPane.background", PANEL);
-        UIManager.put("Panel.background", PANEL);
+        UIManager.put("Panel.background", BG);
         UIManager.put("OptionPane.messageForeground", TEXT);
         UIManager.put("OptionPane.messageFont", BODY);
         UIManager.put("OptionPane.buttonFont", BOLD);
@@ -64,6 +85,14 @@ public final class Theme {
         UIManager.put("ToolTip.font", SMALL);
         UIManager.put("ToolTip.border", BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(LINE), new EmptyBorder(4, 8, 4, 8)));
+    }
+
+
+    public static JPanel background() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BG);
+        panel.setOpaque(true);
+        return panel;
     }
 
     public static Color rarity(Rarity r) {
@@ -163,28 +192,113 @@ public final class Theme {
     }
 
     public static class Btn extends JButton {
-        private Color base; private boolean hover, pressed;
+        private Color base;
+        private boolean hover;
+        private boolean pressed;
+        private boolean selected;
+
         public Btn(String text, Color base) {
-            super(text); this.base = base; setFont(BOLD); setForeground(TEXT);
-            setContentAreaFilled(false); setBorderPainted(false); setFocusPainted(false);
-            setBorder(new EmptyBorder(8, 16, 8, 16)); setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            super(text);
+            this.base = base;
+
+            setFont(BOLD);
+            setForeground(TEXT);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setBorder(new EmptyBorder(9, 16, 9, 16));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
             addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
-                @Override public void mouseExited(MouseEvent e) { hover = false; pressed = false; repaint(); }
-                @Override public void mousePressed(MouseEvent e) { pressed = true; repaint(); }
-                @Override public void mouseReleased(MouseEvent e) { pressed = false; repaint(); }
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    hover = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    hover = false;
+                    pressed = false;
+                    repaint();
+                }
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    pressed = true;
+                    repaint();
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    pressed = false;
+                    repaint();
+                }
             });
         }
-        public void setBase(Color c) { base = c; repaint(); }
-        @Override protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create(); smooth(g2);
-            boolean on = isEnabled();
-            Color c = !on ? new Color(0x1C1F28) : pressed ? base.darker() : hover ? base.brighter() : base;
-            g2.setColor(c); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-            if (on && hover) { // garis emas tipis saat kursor di atas tombol
-                g2.setColor(new Color(GOLD.getRed(), GOLD.getGreen(), GOLD.getBlue(), 120));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+
+        public void setBase(Color color) {
+            base = color;
+            repaint();
+        }
+
+        public void setSelected(boolean selected) {
+            this.selected = selected;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            smooth(g2);
+
+            Color color;
+
+            if (!isEnabled()) {
+                color = new Color(0x1C1F28);
+            } else if (pressed) {
+                color = base.darker();
+            } else if (selected) {
+                color = GOLD_DARK;
+            } else if (hover) {
+                color = base.brighter();
+            } else {
+                color = base;
             }
+
+            g2.setColor(color);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+
+            if (selected) {
+                g2.setColor(GOLD);
+                g2.fillRoundRect(0, 5, 3, getHeight() - 10, 4, 4);
+                g2.setColor(new Color(
+                        GOLD.getRed(),
+                        GOLD.getGreen(),
+                        GOLD.getBlue(),
+                        100
+                ));
+                g2.drawRoundRect(
+                        0, 0,
+                        getWidth() - 1,
+                        getHeight() - 1,
+                        12, 12
+                );
+            } else if (isEnabled() && hover) {
+                g2.setColor(new Color(
+                        GOLD.getRed(),
+                        GOLD.getGreen(),
+                        GOLD.getBlue(),
+                        120
+                ));
+                g2.drawRoundRect(
+                        0, 0,
+                        getWidth() - 1,
+                        getHeight() - 1,
+                        12, 12
+                );
+            }
+
             g2.dispose();
             super.paintComponent(g);
         }
