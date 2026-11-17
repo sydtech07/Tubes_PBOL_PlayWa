@@ -61,6 +61,9 @@ public class Crafting {
     }
 
     public String craftItem(Player player, String resultName) {
+        if (player == null) {
+            return "Data pemain tidak ditemukan.";
+        }
 
         // Mencari resep crafting
         Recipe recipe = RECIPES.stream()
@@ -92,9 +95,11 @@ public class Crafting {
         }
 
         // Mengurangi bahan yang digunakan
-        needs.forEach((item, qty) ->
-                inventory.remove(player, item, qty)
-        );
+        for (Map.Entry<Item, Integer> n : needs.entrySet()) {
+            if (!inventory.remove(player, n.getKey(), n.getValue())) {
+                throw new IllegalStateException("Gagal mengurangi bahan: " + n.getKey().getName());
+            }
+        }
 
         // Peluang mendapatkan bonus item 10%
         boolean bonus = RNG.nextInt(100) < BONUS_CHANCE;
