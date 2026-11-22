@@ -2,6 +2,10 @@ package com.playwa.ui;
 
 import com.playwa.model.Rarity;
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
@@ -135,6 +139,7 @@ public final class Theme {
         sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         sp.setBorder(null); sp.setOpaque(false); sp.getViewport().setOpaque(false);
         sp.getVerticalScrollBar().setUnitIncrement(18);
+        sp.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
         sp.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
         sp.getVerticalScrollBar().setUI(new BasicScrollBarUI() {
             @Override protected void configureScrollBarColors() { thumbColor = LINE; trackColor = new Color(0, 0, 0, 0); }
@@ -175,15 +180,25 @@ public final class Theme {
         public Card dashed() { dashed = true; return this; }
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create(); smooth(g2);
-            RoundRectangle2D shape = new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+            int w = getWidth(), h = getHeight();
+            // digeser 0,5 px supaya garis tepi 1 px tajam (tidak blur di dua piksel)
+            RoundRectangle2D shape = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1, h - 1, 16, 16);
             if (!dashed) {
                 // sedikit lebih terang di bagian atas supaya kartu terasa punya kedalaman
-                g2.setPaint(new GradientPaint(0, 0, lighter(fill, 8), 0, getHeight(), fill)); g2.fill(shape);
+                g2.setPaint(new GradientPaint(0, 0, lighter(fill, 8), 0, h, fill)); g2.fill(shape);
             }
-            if (stripe != null) { g2.setClip(shape); g2.setColor(stripe); g2.fillRect(0, 0, 4, getHeight()); g2.setClip(null); }
             g2.setColor(LINE);
             if (dashed) g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10, new float[]{5, 4}, 0));
-            g2.draw(shape); g2.dispose();
+            g2.draw(shape);
+            if (stripe != null) {
+                // Garis aksen: batang kecil berujung bulat, di-inset dari sudut kartu.
+                // Tidak pakai clip (clip Java2D tidak anti-alias -> ujungnya bergerigi / keluar lengkungan).
+                g2.setStroke(new BasicStroke(1f));
+                int inset = 10;
+                g2.setColor(stripe);
+                g2.fill(new RoundRectangle2D.Float(0.5f, inset, 4f, Math.max(0, h - inset * 2), 4f, 4f));
+            }
+            g2.dispose();
         }
     }
 
@@ -270,20 +285,17 @@ public final class Theme {
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
 
             if (selected) {
-                g2.setColor(GOLD);
-                g2.fillRoundRect(0, 5, 3, getHeight() - 10, 4, 4);
                 g2.setColor(new Color(
                         GOLD.getRed(),
                         GOLD.getGreen(),
                         GOLD.getBlue(),
                         100
                 ));
-                g2.drawRoundRect(
-                        0, 0,
-                        getWidth() - 1,
-                        getHeight() - 1,
-                        12, 12
-                );
+                g2.draw(new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1, 12, 12));
+                // garis aksen digambar setelah border, di-inset dari sudut supaya tidak keluar lengkungan
+                g2.setColor(GOLD);
+                int inset = 10;
+                g2.fill(new RoundRectangle2D.Float(0.5f, inset, 4f, Math.max(0, getHeight() - inset * 2), 4f, 4f));
             } else if (isEnabled() && hover) {
                 g2.setColor(new Color(
                         GOLD.getRed(),
@@ -360,41 +372,96 @@ public final class Theme {
 
     /** Papan catatan petualangan. */
     public static class Log extends Card {
-        private final JTextArea area = new JTextArea();
+        private final JTextPane pane = new JTextPane();
+        private final StyledDocument doc = pane.getStyledDocument();
+        private boolean fresh = true;
+
         public Log(String title) {
             super(new BorderLayout(0, 10), PANEL, 16);
             JPanel head = new JPanel(new BorderLayout(0, 8)); head.setOpaque(false);
             head.add(label(title, H2, TEXT), BorderLayout.NORTH); head.add(new Divider(), BorderLayout.SOUTH);
             add(head, BorderLayout.NORTH);
-            area.setEditable(false); area.setLineWrap(true); area.setWrapStyleWord(true); area.setOpaque(false);
-            area.setFont(sans(Font.PLAIN, 14)); area.setForeground(new Color(0xCFCBC2));
-            area.setMargin(new Insets(2, 2, 2, 6));
-            area.setText("Petualanganmu akan tercatat di sini.");
-            add(scroll(area), BorderLayout.CENTER);
+            pane.setEditable(false); pane.setOpaque(false); pane.setFocusable(false);
+            pane.setFont(sans(Font.PLAIN, 14)); pane.setMargin(new Insets(2, 2, 2, 8));
+            write("Petualanganmu akan tercatat di sini.", MUTED, false, 0f, false);
+            add(scroll(pane), BorderLayout.CENTER);
         }
-        /** Memutar adegan baris demi baris, lalu hadiah di akhir. */
-        public void play(String header, List<String> story, List<String> summary, Runnable done) {
-            List<String> texts = new ArrayList<>(); List<Integer> delays = new ArrayList<>();
-            texts.add("\n— " + header.toUpperCase() + " —"); delays.add(0);
-            for (String l : story) { texts.add(l); delays.add(600 + Math.min(900, l.length() * 12)); }
-            if (!summary.isEmpty()) {
-                texts.add("\n— HASIL —"); delays.add(1100);
-                for (String l : summary) { texts.add(l); delays.add(450); }
+
+        private void begin() { if (fresh) { pane.setText(""); fresh = false; } }
+
+        private static Color blend(Color a, Color b, double k) {
+            return new Color((int) (a.getRed() + (b.getRed() - a.getRed()) * k), (int) (a.getGreen() + (b.getGreen() - a.getGreen()) * k),
+                    (int) (a.getBlue() + (b.getBlue() - a.getBlue()) * k));
+        }
+
+        /** Warna baris menurut isinya: serangan kita, serangan musuh, kemenangan, atau kekalahan. */
+        private static Color tone(String line) {
+            String s = line.toLowerCase();
+            if (s.contains("tumbang") || s.contains("ambruk") || s.contains("tak bergerak") || s.contains("dungeon selesai") || s.contains("segar")) return SUCCESS;
+            if (s.contains("gugur") || s.contains("roboh") || s.contains("menggelap") || s.contains("lemas") || s.contains("kalah") || s.contains("jebakan")) return HP;
+            if (line.contains("(-")) {
+                boolean ours = s.startsWith("kamu menebas") || s.startsWith("serangan telak") || s.contains("terhuyung") || s.startsWith("kamu menyerbu");
+                return ours ? TEXT : new Color(0xF08A8F);
             }
-            int[] i = {0};
-            javax.swing.Timer t = new javax.swing.Timer(0, null);
+            return new Color(0xB9BFCC);
+        }
+
+        private void write(String text, Color color, boolean bold, float above, boolean animate) {
+            try {
+                int start = doc.getLength();
+                SimpleAttributeSet a = new SimpleAttributeSet();
+                StyleConstants.setForeground(a, animate ? PANEL : color); StyleConstants.setBold(a, bold);
+                StyleConstants.setFontFamily(a, SANS); StyleConstants.setFontSize(a, above > 0 ? 12 : 14);
+                doc.insertString(start, text + "\n", a);
+                SimpleAttributeSet p = new SimpleAttributeSet();
+                StyleConstants.setSpaceAbove(p, above); StyleConstants.setSpaceBelow(p, 5f);
+                doc.setParagraphAttributes(start, text.length() + 1, p, false);
+                pane.setCaretPosition(doc.getLength());
+                if (animate) fade(start, text.length(), color);
+            } catch (BadLocationException ignored) { }
+        }
+
+        /** Satu-satunya animasi: teks muncul perlahan (fade-in) selama sekitar 0,3 detik. */
+        private void fade(int start, int len, Color target) {
+            int[] step = {0};
+            javax.swing.Timer t = new javax.swing.Timer(45, null);
             t.addActionListener(e -> {
-                if (i[0] >= texts.size()) { t.stop(); done.run(); return; }
-                area.append("\n" + texts.get(i[0])); area.setCaretPosition(area.getDocument().getLength());
-                i[0]++; t.setDelay(i[0] < texts.size() ? delays.get(i[0]) : 700);
+                double k = Math.min(1, ++step[0] / 7.0);
+                SimpleAttributeSet a = new SimpleAttributeSet(); StyleConstants.setForeground(a, blend(PANEL, target, k));
+                doc.setCharacterAttributes(start, len, a, false);
+                if (k >= 1) t.stop();
             });
             t.start();
         }
 
+        /** Memutar adegan baris demi baris, lalu hadiah di akhir. */
+        public void play(String header, List<String> story, List<String> summary, Runnable done) {
+            begin();
+            List<Runnable> steps = new ArrayList<>(); List<Integer> delays = new ArrayList<>();
+            steps.add(() -> write(header.toUpperCase(), GOLD, true, 12f, true)); delays.add(0);
+            for (String l : story) { steps.add(() -> write(l, tone(l), false, 0f, true)); delays.add(600 + Math.min(900, l.length() * 12)); }
+            if (!summary.isEmpty()) {
+                steps.add(() -> write("HASIL", SUCCESS, true, 12f, true)); delays.add(1100);
+                for (String l : summary) {
+                    boolean gold = l.startsWith("+") || l.startsWith("LEVEL");
+                    steps.add(() -> write(l, gold ? GOLD : TEXT, l.startsWith("LEVEL"), 0f, true)); delays.add(450);
+                }
+            }
+            int[] i = {0};
+            javax.swing.Timer t = new javax.swing.Timer(0, null);
+            t.addActionListener(e -> {
+                if (i[0] >= steps.size()) { t.stop(); done.run(); return; }
+                steps.get(i[0]).run(); i[0]++;
+                t.setDelay(i[0] < steps.size() ? delays.get(i[0]) : 700);
+            });
+            t.start();
+        }
+
+        /** Catatan instan tanpa animasi (misalnya untuk Rest). */
         public void add(String header, List<String> lines) {
-            area.append("\n\n— " + header.toUpperCase() + " —");
-            lines.forEach(l -> area.append("\n" + l));
-            area.setCaretPosition(area.getDocument().getLength());
+            begin();
+            write(header.toUpperCase(), GOLD, true, 12f, false);
+            lines.forEach(l -> write(l, tone(l), false, 0f, false));
         }
     }
 }

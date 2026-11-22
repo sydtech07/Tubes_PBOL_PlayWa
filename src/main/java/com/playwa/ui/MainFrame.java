@@ -15,7 +15,7 @@ import java.util.*;
 import java.util.List;
 
 /** Jendela utama: top bar, sidebar, dan halaman-halaman game. */
-public class MainFrame extends JFrame {
+public class MainFrame extends JFrame implements AccountPage.Host {
     private final Services s;
     private Player player;
     private final CardLayout cards = new CardLayout();
@@ -57,7 +57,16 @@ public class MainFrame extends JFrame {
         addPage("Inventory", Theme.label("Inventory", Theme.TITLE, Theme.TEXT), new ItemBrowser(this::inventoryEntries));
         addPage("Shop", Theme.label("Shop", Theme.TITLE, Theme.TEXT), shopPage());
         addPage("Crafting", Theme.label("Crafting", Theme.TITLE, Theme.TEXT), new ItemBrowser(this::craftEntries));
+        addPage("Akun", Theme.label("Akun", Theme.TITLE, Theme.TEXT), new AccountPage(this));
         reload(); show("Home");
+    }
+
+    /** Kembali ke layar login (dipakai Logout dan setelah akun dihapus). */
+    public void signOut() {
+        restTimer.stop();
+        toastTimer.stop();
+        new AuthFrame(s).setVisible(true);
+        dispose();
     }
 
     public Player player() { return player; }
@@ -359,11 +368,7 @@ public class MainFrame extends JFrame {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                restTimer.stop();
-                toastTimer.stop();
-
-                new AuthFrame(s).setVisible(true);
-                dispose();
+                signOut();
             }
         });
 

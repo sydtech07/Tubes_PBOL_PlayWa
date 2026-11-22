@@ -21,7 +21,7 @@ public class DesktopLauncher {
 
         Services services = new Services(ctx.getBean(AuthService.class), ctx.getBean(GameService.class),
             ctx.getBean(PlayerRepository.class), ctx.getBean(ItemRepository.class), ctx.getBean(Inventory.class),
-            ctx.getBean(Shop.class), ctx.getBean(Crafting.class));
+            ctx.getBean(Shop.class), ctx.getBean(Crafting.class), ctx.getBean(AccountService.class));
 
         SwingUtilities.invokeLater(() -> { Theme.install(); new AuthFrame(services).setVisible(true); });
     }

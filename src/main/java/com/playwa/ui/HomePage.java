@@ -1,544 +1,147 @@
-
 package com.playwa.ui;
 
 import com.playwa.activity.Adventure;
 import com.playwa.activity.Hunting;
 import com.playwa.model.Item;
 import com.playwa.model.Player;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
+/** Beranda: status karakter, equipment, aksi cepat, dan catatan petualangan. */
 class HomePage extends JPanel implements Page {
+    private static final String REST_DESC = "Pulihkan stamina dan HP";
+    private static final Color DEF_BLUE = new Color(0x6EA8FF);
 
     private final MainFrame m;
-
-    private final JLabel level = Theme.label("", Theme.BIG, Theme.TEXT);
-    private final JLabel attack = Theme.label("", Theme.BIG, Theme.TEXT);
-    private final JLabel defense = Theme.label("", Theme.BIG, Theme.TEXT);
-    private final JLabel gold = Theme.label("", Theme.BIG, Theme.GOLD);
-
-    private final JLabel expText = Theme.label(
-            "", Theme.SMALL, Theme.MUTED
-    );
-
-    private final JLabel name = Theme.label(
-            "", Theme.TITLE, Theme.TEXT
-    );
-
+    private final Theme.Log log;
+    private final JLabel name = Theme.label("", Theme.serif(Font.BOLD, 30), Theme.TEXT);
+    private final JLabel attack = stat(), defense = stat(), level = stat(), gold = stat();
+    private final JLabel expText = Theme.label("", Theme.SMALL, Theme.MUTED);
+    private final JLabel equipCount = Theme.label("", Theme.SMALL, Theme.GOLD);
     private final Theme.Bar exp = new Theme.Bar(Theme.EXP);
-
-    private Theme.Btn restBtn;
-
-    private final JPanel equip = new JPanel(
-            new GridLayout(2, 2, 8, 8)
-    );
-
+    private final JPanel equip = new JPanel(new GridLayout(2, 2, 12, 12));
+    private final Theme.Btn restBtn;
 
     HomePage(MainFrame m, Theme.Log log) {
-        super(new BorderLayout(16, 0));
+        super(new BorderLayout(18, 0));
+        this.m = m; this.log = log; setOpaque(false);
+        restBtn = action("Rest", REST_DESC, Theme.BLUE, e -> m.rest(log));
 
-        this.m = m;
-        this.currentLog = log;
-        setOpaque(false);
+        JPanel left = new JPanel(new BorderLayout(0, 16)); left.setOpaque(false);
+        left.add(overview(), BorderLayout.NORTH); left.add(equipment(), BorderLayout.CENTER);
 
-        // PANEL KIRI
-        Theme.ScrollBody leftContent = new Theme.ScrollBody(
-                new BorderLayout(0, 16)
-        );
+        JPanel right = new JPanel(new BorderLayout(0, 16)); right.setOpaque(false);
+        right.setPreferredSize(new Dimension(410, 0));
+        right.add(actions(), BorderLayout.NORTH); right.add(log, BorderLayout.CENTER);
 
-        JPanel leftStack = new JPanel();
-        leftStack.setOpaque(false);
-        leftStack.setLayout(
-                new BoxLayout(leftStack, BoxLayout.Y_AXIS)
-        );
-
-        JPanel overview = createOverview();
-        JPanel equipment = createEquipment();
-
-        overview.setAlignmentX(Component.LEFT_ALIGNMENT);
-        equipment.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        leftStack.add(overview);
-        leftStack.add(Box.createVerticalStrut(16));
-        leftStack.add(equipment);
-
-        leftContent.add(leftStack, BorderLayout.NORTH);
-
-        JScrollPane leftScroll = Theme.scroll(leftContent);
-        leftScroll.setBorder(null);
-
-        leftScroll.setHorizontalScrollBarPolicy(
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-        );
-
-        leftScroll.getVerticalScrollBar().setUnitIncrement(18);
-
-        // PANEL KANAN
-        JPanel right = new JPanel(new BorderLayout(0, 16));
-        right.setOpaque(false);
-
-        right.add(createActions(), BorderLayout.NORTH);
-        right.add(log, BorderLayout.CENTER);
-
-        add(leftScroll, BorderLayout.CENTER);
-        add(right, BorderLayout.EAST);
-
-        setPreferredSize(new Dimension(900, 600));
+        add(left, BorderLayout.CENTER); add(right, BorderLayout.EAST);
     }
 
-    // =========================
-    // OVERVIEW KARAKTER
-    // =========================
+    private static JLabel stat() { return Theme.label(" ", Theme.BIG, Theme.TEXT); }
 
-    private JPanel createOverview() {
-        Theme.Card card = new Theme.Card(
-                new BorderLayout(0, 18),
-                Theme.PANEL,
-                20
-        );
+    // ---- ringkasan karakter ----
+    private JPanel overview() {
+        Theme.Card card = new Theme.Card(new BorderLayout(0, 18), Theme.PANEL, 20);
+        JPanel head = new JPanel(); head.setOpaque(false); head.setLayout(new BoxLayout(head, BoxLayout.Y_AXIS));
+        head.add(Theme.label("CHARACTER OVERVIEW", Theme.SMALL, Theme.GOLD)); head.add(Box.createVerticalStrut(4)); head.add(name);
 
-        JPanel heading = new JPanel(new BorderLayout());
-        heading.setOpaque(false);
+        JPanel stats = new JPanel(new GridLayout(1, 4, 10, 0)); stats.setOpaque(false);
+        stats.add(statCard("ATTACK", attack, Theme.HP)); stats.add(statCard("DEFENSE", defense, DEF_BLUE));
+        stats.add(statCard("LEVEL", level, Theme.EXP)); stats.add(statCard("GOLD", gold, Theme.GOLD));
 
-        JPanel titlePanel = new JPanel();
-        titlePanel.setOpaque(false);
-        titlePanel.setLayout(new BoxLayout(
-                titlePanel,
-                BoxLayout.Y_AXIS
-        ));
-
-        titlePanel.add(Theme.label(
-                "CHARACTER OVERVIEW",
-                Theme.SMALL,
-                Theme.GOLD
-        ));
-
-        titlePanel.add(Box.createVerticalStrut(7));
-        titlePanel.add(name);
-
-        heading.add(titlePanel, BorderLayout.WEST);
-
-        card.add(heading, BorderLayout.NORTH);
-
-        // STATISTIK
-        JPanel stats = new JPanel(
-                new GridLayout(2, 2, 10, 10)
-        );
-        stats.setOpaque(false);
-
-        stats.add(statCard(
-                "ATTACK",
-                attack,
-                Theme.HP,
-                "ATK"
-        ));
-
-        stats.add(statCard(
-                "DEFENSE",
-                defense,
-                Theme.BLUE,
-                "DEF"
-        ));
-
-        stats.add(statCard(
-                "LEVEL",
-                level,
-                Theme.EXP,
-                "LV"
-        ));
-
-        stats.add(statCard(
-                "GOLD",
-                gold,
-                Theme.GOLD_DARK,
-                "G"
-        ));
-
-        card.add(stats, BorderLayout.CENTER);
-
-        // EXPERIENCE
-        JPanel experience = new JPanel(
-                new BorderLayout(0, 9)
-        );
-        experience.setOpaque(false);
-
-        JPanel expHeading = new JPanel(
-                new BorderLayout()
-        );
-        expHeading.setOpaque(false);
-
-        expHeading.add(
-                Theme.label(
-                        "EXPERIENCE",
-                        Theme.SMALL,
-                        Theme.MUTED
-                ),
-                BorderLayout.WEST
-        );
-
-        expHeading.add(expText, BorderLayout.EAST);
-
+        JPanel xp = new JPanel(new BorderLayout(0, 8)); xp.setOpaque(false);
+        JPanel xpHead = new JPanel(new BorderLayout()); xpHead.setOpaque(false);
+        xpHead.add(Theme.label("EXPERIENCE", Theme.SMALL, Theme.MUTED), BorderLayout.WEST); xpHead.add(expText, BorderLayout.EAST);
         exp.setPreferredSize(new Dimension(100, 10));
+        xp.add(xpHead, BorderLayout.NORTH); xp.add(exp, BorderLayout.CENTER);
 
-        experience.add(expHeading, BorderLayout.NORTH);
-        experience.add(exp, BorderLayout.CENTER);
-
-        card.add(experience, BorderLayout.SOUTH);
-
+        card.add(head, BorderLayout.NORTH); card.add(stats, BorderLayout.CENTER); card.add(xp, BorderLayout.SOUTH);
         return card;
     }
 
-    private Theme.Card statCard(
-            String title,
-            JLabel value,
-            Color accent,
-            String symbol
-    ) {
-        Theme.Card card = new Theme.Card(
-                new BorderLayout(0, 8),
-                Theme.PANEL2,
-                13
-        );
-
-        JPanel heading = new JPanel(
-                new BorderLayout()
-        );
-        heading.setOpaque(false);
-
-        JLabel label = Theme.label(
-                title,
-                Theme.SMALL,
-                Theme.MUTED
-        );
-
-        JLabel icon = Theme.label(
-                symbol,
-                Theme.BOLD,
-                accent
-        );
-
-        heading.add(label, BorderLayout.WEST);
-        heading.add(icon, BorderLayout.EAST);
-
-        value.setForeground(
-                title.equals("GOLD") ? Theme.GOLD : Theme.TEXT
-        );
-
-        card.add(heading, BorderLayout.NORTH);
-        card.add(value, BorderLayout.CENTER);
-
-        card.stripe(accent);
-
-        return card;
+    private Theme.Card statCard(String title, JLabel value, Color accent) {
+        Theme.Card c = new Theme.Card(new BorderLayout(0, 6), Theme.PANEL2, 14).stripe(accent);
+        value.setForeground(accent == Theme.GOLD ? Theme.GOLD : Theme.TEXT);
+        c.add(Theme.label(title, Theme.SMALL, Theme.MUTED), BorderLayout.NORTH); c.add(value, BorderLayout.CENTER);
+        return c;
     }
 
-    // =========================
-    // EQUIPMENT
-    // =========================
-
-    private JPanel createEquipment() {
-        Theme.Card card = new Theme.Card(
-                new BorderLayout(0, 14),
-                Theme.PANEL,
-                18
-        );
-
-        JPanel heading = new JPanel(new BorderLayout());
-        heading.setOpaque(false);
-
-        heading.add(
-                Theme.label(
-                        "Equipment",
-                        Theme.H2,
-                        Theme.TEXT
-                ),
-                BorderLayout.WEST
-        );
-
-        heading.add(
-                new Theme.Pill("4 SLOTS", Theme.GOLD),
-                BorderLayout.EAST
-        );
-
+    // ---- equipment ----
+    private JPanel equipment() {
+        Theme.Card card = new Theme.Card(new BorderLayout(0, 14), Theme.PANEL, 18);
+        JPanel head = new JPanel(new BorderLayout()); head.setOpaque(false);
+        head.add(Theme.label("Equipment", Theme.H2, Theme.TEXT), BorderLayout.WEST); head.add(equipCount, BorderLayout.EAST);
         equip.setOpaque(false);
-        equip.setLayout(new GridLayout(2, 2, 10, 10));
-
-        card.add(heading, BorderLayout.NORTH);
-        card.add(equip, BorderLayout.CENTER);
-
-        card.setPreferredSize(new Dimension(600, 190));
-        card.setMinimumSize(new Dimension(300, 180));
-
+        card.add(head, BorderLayout.NORTH); card.add(equip, BorderLayout.CENTER);
         return card;
     }
 
-    private Theme.Card slot(
-            String key,
-            String label,
-            String itemName
-    ) {
-        Theme.Card card = new Theme.Card(
-                new BorderLayout(8, 0),
-                Theme.PANEL2,
-                13
-        );
-
-        JPanel content = new JPanel(
-                new BorderLayout(0, 4)
-        );
-        content.setOpaque(false);
-
-        JLabel slotTitle = Theme.label(
-                label.toUpperCase(),
-                Theme.SMALL,
-                Theme.MUTED
-        );
-
-        content.add(slotTitle, BorderLayout.NORTH);
-
+    private Theme.Card slot(String key, String label, String itemName) {
+        Theme.Card c = new Theme.Card(new BorderLayout(0, 6), Theme.PANEL2, 14);
+        JLabel cap = Theme.label(label.toUpperCase(), Theme.SMALL, Theme.MUTED);
         if (itemName == null) {
-            card.dashed();
-
-            JLabel empty = Theme.label(
-                    "Kosong",
-                    Theme.BODY,
-                    Theme.MUTED
-            );
-
-            content.add(empty, BorderLayout.CENTER);
-
-        } else {
-            Item item = m.services()
-                    .items()
-                    .findByName(itemName)
-                    .orElse(null);
-
-            Color rarityColor = item == null
-                    ? Theme.TEXT
-                    : Theme.rarity(item.getRarity());
-
-            JLabel itemLabel = Theme.label(
-                    itemName,
-                    Theme.BOLD,
-                    rarityColor
-            );
-
-            content.add(itemLabel, BorderLayout.CENTER);
-
-            String description = item == null
-                    ? itemName
-                    : itemName
-                    + " | " + item.getDescription()
-                    + " | Rarity: " + item.getRarity().name();
-
-            card.setToolTipText(description);
-            itemLabel.setToolTipText(description);
-
-            card.stripe(rarityColor);
-
-            Theme.Btn remove = new Theme.Btn(
-                    "Lepas",
-                    Theme.RED
-            );
-
-            remove.setFont(Theme.SMALL);
-            remove.setBorder(new EmptyBorder(4, 8, 4, 8));
-            remove.setToolTipText("Lepas equipment");
-
-            remove.addActionListener(e -> {
-                Player player = m.player();
-
-                player.unequip(key);
-
-                m.services().players().save(player);
-                m.reload();
-            });
-
-            JPanel buttonPanel = new JPanel(
-                    new BorderLayout()
-            );
-            buttonPanel.setOpaque(false);
-            buttonPanel.add(remove, BorderLayout.CENTER);
-
-            card.add(buttonPanel, BorderLayout.EAST);
+            c.dashed();
+            JPanel mid = new JPanel(); mid.setOpaque(false); mid.setLayout(new BoxLayout(mid, BoxLayout.Y_AXIS));
+            mid.add(Theme.label("Kosong", Theme.serif(Font.ITALIC, 16), Theme.MUTED)); mid.add(Box.createVerticalStrut(3));
+            mid.add(Theme.label("Pakai item dari Inventory", Theme.SMALL, new Color(0x5F6676)));
+            c.add(cap, BorderLayout.NORTH); c.add(mid, BorderLayout.CENTER);
+            return c;
         }
+        Item it = m.services().items().findByName(itemName).orElse(null);
+        Color col = it == null ? Theme.TEXT : Theme.rarity(it.getRarity());
+        c.stripe(col);
+        JPanel top = new JPanel(new BorderLayout()); top.setOpaque(false);
+        top.add(cap, BorderLayout.WEST);
+        if (it != null) top.add(Theme.label(it.getRarity().getLabel(), Theme.SMALL, col), BorderLayout.EAST);
+        JPanel mid = new JPanel(); mid.setOpaque(false); mid.setLayout(new BoxLayout(mid, BoxLayout.Y_AXIS));
+        mid.add(Theme.label(itemName, Theme.serif(Font.BOLD, 17), col)); mid.add(Box.createVerticalStrut(3));
+        if (it != null) mid.add(Theme.label(it.getDescription(), Theme.SMALL, Theme.MUTED));
+        Theme.Btn remove = new Theme.Btn("Lepas", Theme.RED); remove.setFont(Theme.SMALL);
+        remove.setBorder(new EmptyBorder(4, 12, 4, 12));
+        remove.addActionListener(e -> { Player p = m.player(); p.unequip(key); m.services().players().save(p); m.reload(); });
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0)); bottom.setOpaque(false); bottom.add(remove);
+        c.add(top, BorderLayout.NORTH); c.add(mid, BorderLayout.CENTER); c.add(bottom, BorderLayout.SOUTH);
+        return c;
+    }
 
-        card.add(content, BorderLayout.CENTER);
-
+    // ---- aksi cepat ----
+    private JPanel actions() {
+        Theme.Card card = new Theme.Card(new BorderLayout(0, 12), Theme.PANEL, 16);
+        JPanel list = new JPanel(new GridLayout(3, 1, 0, 10)); list.setOpaque(false);
+        list.add(action("Explore", "Jelajahi area dan kumpulkan material", Theme.GREEN, e -> m.run(new Adventure(), log)));
+        list.add(action("Hunt", "Berburu monster dan dapatkan hadiah", Theme.RED, e -> m.run(new Hunting(), log)));
+        list.add(restBtn);
+        card.add(Theme.label("Quick Actions", Theme.H2, Theme.TEXT), BorderLayout.NORTH); card.add(list, BorderLayout.CENTER);
         return card;
     }
 
-
-
-    // =========================
-    // QUICK ACTIONS
-    // =========================
-
-    private JPanel createActions() {
-        Theme.Card card = new Theme.Card(
-                new BorderLayout(0, 13),
-                Theme.PANEL,
-                16
-        );
-
-        card.add(
-                Theme.label(
-                        "Quick Actions",
-                        Theme.H2,
-                        Theme.TEXT
-                ),
-                BorderLayout.NORTH
-        );
-
-        JPanel buttons = new JPanel(
-                new GridLayout(3, 1, 0, 9)
-        );
-        buttons.setOpaque(false);
-
-        buttons.add(createAction(
-                "Explore",
-                "Jelajahi area dan kumpulkan material",
-                Theme.GREEN,
-                e -> m.run(new Adventure(), getLog())
-        ));
-
-        buttons.add(createAction(
-                "Hunt",
-                "Berburu monster dan dapatkan hadiah",
-                Theme.RED,
-                e -> m.run(new Hunting(), getLog())
-        ));
-
-        restBtn = createAction(
-                "Rest",
-                "Pulihkan stamina dan kondisi karakter",
-                Theme.BLUE,
-                e -> m.rest(getLog())
-        );
-
-        buttons.add(restBtn);
-
-        card.add(buttons, BorderLayout.CENTER);
-
-        return card;
+    private static String html(String title, String desc) {
+        return "<html><b style='font-size:13px'>" + title + "</b><br><span style='font-size:10px;color:#B8C0CC'>" + desc + "</span></html>";
     }
 
-    private Theme.Log currentLog;
-
-    private Theme.Log getLog() {
-        return currentLog;
+    private Theme.Btn action(String title, String desc, Color color, java.awt.event.ActionListener l) {
+        Theme.Btn b = new Theme.Btn(html(title, desc), color);
+        b.setHorizontalAlignment(SwingConstants.LEFT); b.setBorder(new EmptyBorder(11, 16, 11, 16));
+        b.addActionListener(l);
+        return b;
     }
 
-    private Theme.Btn createAction(
-            String title,
-            String description,
-            Color color,
-            java.awt.event.ActionListener listener
-    ) {
-        Theme.Btn button = new Theme.Btn(
-                title + "   |   " + description,
-                color
-        );
-
-        button.setHorizontalAlignment(
-                SwingConstants.LEFT
-        );
-
-        button.setBorder(
-                new EmptyBorder(13, 15, 13, 15)
-        );
-
-        button.setMaximumSize(
-                new Dimension(Integer.MAX_VALUE, 55)
-        );
-
-        button.addActionListener(listener);
-
-        return button;
-    }
-
-    // =========================
-    // REST STATUS
-    // =========================
-
+    /** Dipanggil MainFrame: tombol Rest berubah jadi "Berhenti" selama istirahat berlangsung. */
     void setResting(boolean on, String info) {
-        if (restBtn == null) return;
-
-        if (on) {
-            restBtn.setText("Berhenti  |  " + info);
-        } else {
-            restBtn.setText(
-                    "Rest   |   Pulihkan stamina dan kondisi karakter"
-            );
-        }
+        restBtn.setText(on ? html("Berhenti", info) : html("Rest", REST_DESC));
     }
 
-    // =========================
-    // REFRESH DATA
-    // =========================
-
-    @Override
-    public void refresh() {
-        Player player = m.player();
-
-        name.setText(player.getName());
-
-        attack.setText(
-                String.valueOf(player.getTotalAttack())
-        );
-
-        defense.setText(
-                String.valueOf(player.getTotalDefense())
-        );
-
-        level.setText(
-                String.valueOf(player.getLevel())
-        );
-
-        gold.setText(
-                String.valueOf(player.getGold())
-        );
-
-        expText.setText(
-                player.getExp() +
-                        " / " +
-                        player.expToNextLevel()
-        );
-
-        exp.set(
-                player.getExp(),
-                player.expToNextLevel()
-        );
-
-        equip.removeAll();
-
-        equip.add(slot(
-                "weapon",
-                "Senjata",
-                player.getWeaponName()
-        ));
-
-        equip.add(slot(
-                "helmet",
-                "Helm",
-                player.getHelmetName()
-        ));
-
-        equip.add(slot(
-                "chest",
-                "Zirah",
-                player.getChestName()
-        ));
-
-        equip.add(slot(
-                "boots",
-                "Sepatu",
-                player.getBootsName()
-        ));
-
-        equip.revalidate();
-        equip.repaint();
+    @Override public void refresh() {
+        Player p = m.player();
+        name.setText(p.getName()); attack.setText("" + p.getTotalAttack()); defense.setText("" + p.getTotalDefense());
+        level.setText("" + p.getLevel()); gold.setText("" + p.getGold());
+        expText.setText(p.getExp() + " / " + p.expToNextLevel()); exp.set(p.getExp(), p.expToNextLevel());
+        String[] names = {p.getWeaponName(), p.getHelmetName(), p.getChestName(), p.getBootsName()};
+        String[] keys = {"weapon", "helmet", "chest", "boots"}, labels = {"Senjata", "Helm", "Zirah", "Sepatu"};
+        equip.removeAll(); int worn = 0;
+        for (int i = 0; i < 4; i++) { equip.add(slot(keys[i], labels[i], names[i])); if (names[i] != null) worn++; }
+        equipCount.setText(worn + " / 4 TERPASANG");
+        equip.revalidate(); equip.repaint();
     }
 }

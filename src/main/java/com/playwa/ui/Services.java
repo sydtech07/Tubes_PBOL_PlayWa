@@ -6,4 +6,4 @@ import com.playwa.service.*;
 
 /** Kumpulan service yang dipakai UI (dibuat sekali oleh DesktopLauncher). */
 public record Services(AuthService auth, GameService game, PlayerRepository players, ItemRepository items,
-                       Inventory inventory, Shop shop, Crafting crafting) {}
+                       Inventory inventory, Shop shop, Crafting crafting, AccountService account) {}

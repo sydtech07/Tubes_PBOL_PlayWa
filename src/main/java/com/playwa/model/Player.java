@@ -20,6 +20,18 @@ public class Player {
 
     protected Player() {}
     public Player(String name) { this.name = name; }
+
+    /** Ganti nama karakter (biayanya diurus AccountService). */
+    public void rename(String newName) { this.name = newName; }
+
+    /** Kembalikan karakter ke kondisi awal. Username dan password tetap. */
+    public void resetProgress() {
+        level = 1; exp = 0; gold = 100;
+        maxHp = 100; hp = 100; maxStamina = 50; stamina = 50; baseAttack = 5;
+        weaponBonus = 0; helmetDef = 0; chestDef = 0; bootsDef = 0;
+        weaponName = null; helmetName = null; chestName = null; bootsName = null;
+    }
+
     public Player(String name, String username, String passwordHash) { this.name = name; this.username = username; this.passwordHash = passwordHash; }
     public String getUsername() { return username; }
     public String getPasswordHash() { return passwordHash; }
